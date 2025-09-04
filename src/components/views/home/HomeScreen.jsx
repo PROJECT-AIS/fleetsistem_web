@@ -51,7 +51,7 @@ const HomeScreen = () => {
       type: "dump_truck",
       name: "Dump Truck C",
       image:
-        "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=150&h=100&fit=crop",
+        "https://plus.unsplash.com/premium_photo-1664303847960-586318f59035?q=80&w=1548&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
       lastLocation: "Site B",
       fuelLevel: 92,
       distance: "1.8 KM",
@@ -65,7 +65,7 @@ const HomeScreen = () => {
       type: "dump_truck",
       name: "Dump Truck A",
       image:
-        "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=150&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
       lastLocation: "Site C",
       fuelLevel: 45,
       distance: "5.2 KM",
@@ -93,7 +93,7 @@ const HomeScreen = () => {
       type: "truck",
       name: "Vehicle 005",
       image:
-        "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=150&h=100&fit=crop",
+        "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=928&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
       lastLocation: "Site E",
       fuelLevel: 67,
       distance: "4.3 KM",

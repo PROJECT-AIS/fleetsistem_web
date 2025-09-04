@@ -1,11 +1,38 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
+import Cookies from "js-cookie";
 
 export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  const { setIsAuthenticated } = useContext(AuthContext);
+
+  const logout = () => {
+    try {
+      // Remove cookies
+      Cookies.remove('token');
+      Cookies.remove('user');
+
+      setIsAuthenticated(false);
+      
+      // Close dropdown
+      setShowDropdown(false);
+      
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      navigate("/login", { replace: true });
+    }
+  };
+
+  const handleProfileClick = () => {
+    setShowDropdown(false);
+    navigate('/profile');
+  };
 
   const userName = "Cha Eun-woo";
   const userEmail = "chaeunwoo@gmail.com";
@@ -14,24 +41,41 @@ export default function Header() {
   const profileMenu = [
     {
       label: 'Profile',
-      onClick: () => navigate('/profile'),
+      onClick: handleProfileClick,
     },
     {
       label: 'Log Out',
-      onClick: () => alert('Logout!'),
+      onClick: logout,
       className: 'text-red-400 hover:bg-gray-600',
     },
   ];
 
+  // Handle click outside to close dropdown
   useEffect(() => {
     if (!showDropdown) return;
+    
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowDropdown(false);
       }
     }
+    
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
+
+  // Handle escape key to close dropdown
+  useEffect(() => {
+    function handleEscapeKey(e) {
+      if (e.key === 'Escape') {
+        setShowDropdown(false);
+      }
+    }
+
+    if (showDropdown) {
+      document.addEventListener("keydown", handleEscapeKey);
+      return () => document.removeEventListener("keydown", handleEscapeKey);
+    }
   }, [showDropdown]);
 
   return (
@@ -50,13 +94,21 @@ export default function Header() {
           <div className="text-base font-semibold text-white leading-tight">{userName}</div>
           <div className="text-xs text-gray-400 leading-tight">{userEmail}</div>
         </div>
-        <button onClick={() => setShowDropdown((v) => !v)} className="ml-1">
-          <ChevronDown className="w-4 h-4 text-gray-400" />
+        <button 
+          onClick={() => setShowDropdown((v) => !v)} 
+          className="ml-1 p-1 rounded hover:bg-gray-600 transition-colors"
+          aria-label="Toggle user menu"
+        >
+          <ChevronDown 
+            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+              showDropdown ? 'rotate-180' : ''
+            }`} 
+          />
         </button>
         {showDropdown && (
           <div
             ref={dropdownRef}
-            className="absolute top-14 right-0 mt-2 w-48 rounded-lg shadow-lg z-50"
+            className="absolute top-14 right-0 mt-2 w-48 rounded-lg shadow-lg z-50 animate-in fade-in duration-200"
             style={{ backgroundColor: "#343538" }}
           >
             <div className="p-3 border-b" style={{ borderColor: "#4a4a4a" }}>
@@ -67,10 +119,13 @@ export default function Header() {
               {profileMenu.map((item, idx) => (
                 <button
                   key={idx}
-                  className={`w-full text-left px-3 py-2 rounded text-sm ${item.className || "text-white hover:bg-gray-600"}`}
+                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors duration-150 ${
+                    item.className || "text-white hover:bg-gray-600"
+                  }`}
                   onClick={() => {
-                    setShowDropdown(false);
-                    item.onClick && item.onClick();
+                    if (typeof item.onClick === 'function') {
+                      item.onClick();
+                    }
                   }}
                 >
                   {item.label}
@@ -82,4 +137,4 @@ export default function Header() {
       </div>
     </div>
   );
-} 
+}

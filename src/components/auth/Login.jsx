@@ -1,11 +1,45 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
+import api from "../../services/api";
+import Cookies from "js-cookie";
 
 export default function Login() {
+  const navigate = useNavigate();
+
+  const { setIsAuthenticated } = useContext(AuthContext);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  const [validation, setValidation] = useState([]);
+  const [loginFailed, setLoginFailed] = useState([]);
+
+  const login = async (e) => {
+    e.preventDefault();
+
+    await api.post('/api/login', {
+        email: email,
+        password: password,
+    })
+        .then(response => {
+
+            Cookies.set('token', response.data.data.token);
+            Cookies.set('user', JSON.stringify(response.data.data.user));
+
+            setIsAuthenticated(true);
+
+            navigate("/", { replace: true });
+        })
+        .catch(error => {
+            setValidation(error.response.data);
+            setLoginFailed(error.response.data);
+        })
+};
 
   return (
     <div
@@ -55,81 +89,101 @@ export default function Login() {
           <h3 className="text-white text-3xl font-bold">Back</h3>
         </div>
 
-        {/* Login Form */}
-        <div className="space-y-6">
-          {/* Email Field */}
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-              style={{ borderColor: email ? "#74CD25" : undefined }}
-            />
+        {validation.errors && (
+          <div className="mt-2 p-3 rounded-lg bg-red-100 border border-red-400 text-red-700">
+            {validation.errors.map((error, index) => (
+              <p key={index} className="text-sm font-medium">
+                {error.msg}
+              </p>
+            ))}
           </div>
+        )}
+        {loginFailed.message && (
+          <div className="mt-2 p-3 rounded-lg bg-red-100 border border-red-400 text-red-700">
+            <p className="text-sm font-medium">{loginFailed.message}</p>
+          </div>
+        )}
 
-          {/* Password Field */}
-          <div>
-            <label className="block text-white text-sm font-medium mb-2">
-              Password
-            </label>
-            <div className="relative">
+        <form onSubmit={login}>
+          {/* Login Form */}
+          <div className="space-y-6">
+            {/* Email Field */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Email
+              </label>
               <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors pr-12"
-                style={{ borderColor: password ? "#74CD25" : undefined }}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
+                style={{ borderColor: email ? "#74CD25" : undefined }}
               />
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-white text-sm font-medium mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors pr-12"
+                  style={{ borderColor: password ? "#74CD25" : undefined }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-lime-500 border-gray-600 rounded focus:ring-lime-500 focus:ring-2 bg-transparent"
+                  style={{ accentColor: "#74CD25" }}
+                />
+                <span className="text-white text-sm">Remember me</span>
+              </label>
+              <button className="text-white text-sm hover:text-lime-500 transition-colors">
+                Forgot Password
+              </button>
+            </div>
+
+            {/* Login Button */}
+            <button
+              className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
+              style={{ backgroundColor: "#74CD25" }}
+              type="submit"
+            >
+              Login
+            </button>
+
+            {/* Sign Up Link */}
+            <div className="text-center">
+              <span className="text-white">Don't have an account? </span>
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                className="text-lime-500 hover:text-lime-400 transition-colors"
+                onClick={() => (window.location.href = "/register")}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                Sign up
               </button>
             </div>
           </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 text-lime-500 border-gray-600 rounded focus:ring-lime-500 focus:ring-2 bg-transparent"
-                style={{ accentColor: "#74CD25" }}
-              />
-              <span className="text-white text-sm">Remember me</span>
-            </label>
-            <button className="text-white text-sm hover:text-lime-500 transition-colors">
-              Forgot Password
-            </button>
-          </div>
-
-          {/* Login Button */}
-          <button
-            className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
-            style={{ backgroundColor: "#74CD25" }}
-            onClick={() => window.location.href = '/'}
-          >
-            Login
-          </button>
-
-          {/* Sign Up Link */}
-          <div className="text-center">
-            <span className="text-white">Don't have an account? </span>
-            <button className="text-lime-500 hover:text-lime-400 transition-colors" onClick={() => window.location.href = '/register'}>
-              Sign up
-            </button>
-          </div>
-        </div>
+        </form>
 
         {/* Decorative Green Circle */}
         <div

@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import SideBar from "../../utils/sidebar/SideBar";
 import { Download, Search } from "lucide-react";
 import Header from '../../utils/Header';
 
 const dummyData = Array.from({ length: 14 }, (_, i) => ({
   no: i + 1,
-  waktu: "30/05/2025 16:10:50",
+  waktu: "30/08/2025 16:10:50",
   idAlat: `xxxxx-${i + 1}`,
   unit: `Plat-${(i % 5) + 1}`,
   nama: ["Pak AA", "Pak BB", "Pak CC", "Pak DD", "Pak EE"][i % 5],
@@ -17,8 +17,81 @@ const filterOptions = ["Semua", "Hari Ini", "Minggu Ini", "Bulan Ini"];
 
 export default function History() {
   const [activeFilter, setActiveFilter] = useState("Semua");
-  const [dateRange, setDateRange] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
+
+  // Function to check if date is within filter range
+  const isDateInRange = (dateStr, filter) => {
+    const date = new Date(dateStr.split(' ')[0].split('/').reverse().join('-'));
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    switch (filter) {
+      case "Hari Ini":
+        return date >= startOfToday;
+      case "Minggu Ini":
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+        return date >= startOfWeek;
+      case "Bulan Ini":
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        return date >= startOfMonth;
+      default:
+        return true;
+    }
+  };
+
+  // Function to check if date is within custom date range
+  const isDateInCustomRange = (dateStr) => {
+    if (!startDate && !endDate) return true;
+    
+    const date = new Date(dateStr.split(' ')[0].split('/').reverse().join('-'));
+    
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      return date >= start && date <= end;
+    } else if (startDate) {
+      const start = new Date(startDate);
+      return date >= start;
+    } else if (endDate) {
+      const end = new Date(endDate);
+      return date <= end;
+    }
+    
+    return true;
+  };
+
+  // Filtered data based on active filters and search
+  const filteredData = useMemo(() => {
+    return dummyData.filter(row => {
+      // Filter by tab selection
+      const matchesFilter = isDateInRange(row.waktu, activeFilter);
+      
+      // Filter by custom date range
+      const matchesDateRange = isDateInCustomRange(row.waktu);
+      
+      // Filter by search term
+      const searchTerm = search.toLowerCase();
+      const matchesSearch = !searchTerm || 
+        row.idAlat.toLowerCase().includes(searchTerm) ||
+        row.unit.toLowerCase().includes(searchTerm) ||
+        row.nama.toLowerCase().includes(searchTerm) ||
+        row.operatorId.toLowerCase().includes(searchTerm) ||
+        row.jabatan.toLowerCase().includes(searchTerm) ||
+        row.waktu.toLowerCase().includes(searchTerm);
+      
+      return matchesFilter && matchesDateRange && matchesSearch;
+    });
+  }, [activeFilter, startDate, endDate, search]);
+
+  // Format date for display
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('id-ID');
+  };
 
   return (
     <div className="min-h-screen bg-[#232428] flex flex-col">
@@ -43,14 +116,24 @@ export default function History() {
                 </button>
               ))}
               <div className="flex items-center gap-2 ml-2">
-                <span className="text-white text-sm">Minggu Ini:</span>
-                <input
-                  type="text"
-                  placeholder="xx/xx/2xxx - xx/xx/2xxx"
-                  className="rounded-lg px-3 py-2 bg-[#232428] text-white border border-[#343538] focus:outline-none focus:ring-2 focus:ring-[#74CD25] text-sm w-44"
-                  value={dateRange}
-                  onChange={e => setDateRange(e.target.value)}
-                />
+                <span className="text-white text-sm"> atau Rentang Waktu:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    className="rounded-lg px-3 py-2 bg-[#232428] text-white border border-[#343538] focus:outline-none focus:ring-2 focus:ring-[#74CD25] text-sm"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    title="Tanggal Mulai"
+                  />
+                  <span className="text-white text-sm">-</span>
+                  <input
+                    type="date"
+                    className="rounded-lg px-3 py-2 bg-[#232428] text-white border border-[#343538] focus:outline-none focus:ring-2 focus:ring-[#74CD25] text-sm"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    title="Tanggal Akhir"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex gap-2 items-center mt-2 md:mt-0">
@@ -84,17 +167,25 @@ export default function History() {
                 </tr>
               </thead>
               <tbody>
-                {dummyData.map((row) => (
-                  <tr key={row.no} className="even:bg-[#2d2e32] odd:bg-[#232428] border-b border-[#343538]">
-                    <td className="px-4 py-2 text-white">{row.no}</td>
-                    <td className="px-4 py-2 text-white">{row.waktu}</td>
-                    <td className="px-4 py-2 text-white">{row.idAlat}</td>
-                    <td className="px-4 py-2 text-white">{row.unit}</td>
-                    <td className="px-4 py-2 text-white">{row.nama}</td>
-                    <td className="px-4 py-2 text-white">{row.operatorId}</td>
-                    <td className="px-4 py-2 text-white">{row.jabatan}</td>
+                {filteredData.length > 0 ? (
+                  filteredData.map((row) => (
+                    <tr key={row.no} className="even:bg-[#2d2e32] odd:bg-[#232428] border-b border-[#343538]">
+                      <td className="px-4 py-2 text-white">{row.no}</td>
+                      <td className="px-4 py-2 text-white">{row.waktu}</td>
+                      <td className="px-4 py-2 text-white">{row.idAlat}</td>
+                      <td className="px-4 py-2 text-white">{row.unit}</td>
+                      <td className="px-4 py-2 text-white">{row.nama}</td>
+                      <td className="px-4 py-2 text-white">{row.operatorId}</td>
+                      <td className="px-4 py-2 text-white">{row.jabatan}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                      Tidak ada data yang sesuai dengan filter yang dipilih
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

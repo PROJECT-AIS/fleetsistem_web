@@ -1,13 +1,35 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import api from "../../services/api";
 
 export default function Register() {
+  const navigate = useNavigate();
   const [phone, setPhone] = useState("");
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [validation, setValidation] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  const register = async (e) => {
+    e.preventDefault();
+
+    await api
+      .post("/api/register", {
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+      })
+      .then(() => {
+        navigate("/login");
+      })
+      .catch((error) => {
+        setValidation(error.response.data);
+      });
+  };
 
   return (
     <div
@@ -61,20 +83,30 @@ export default function Register() {
 
         <div className="text-white mb-5">Enter your Full Details</div>
 
-        {/* Login Form */}
-        <div className="space-y-3">
-          <div className="relative">
+        {validation.errors && (
+          <div className="mt-2 p-3 rounded-lg bg-red-100 border border-red-400 text-red-700">
+            {validation.errors.map((error, index) => (
+              <p key={index} className="text-sm font-medium">
+                {error.msg}
+              </p>
+            ))}
+          </div>
+        )}
+        <form onSubmit={register}>
+          {/* Login Form */}
+          <div className="space-y-3">
+            <div className="relative">
             <User
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
               size={20}
             />
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Username"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name"
               className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-              style={{ borderColor: username ? "#74CD25" : undefined }}
+              style={{ borderColor: name ? "#74CD25" : undefined }}
             />
           </div>
 
@@ -137,8 +169,9 @@ export default function Register() {
           <button
             className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 mt-4"
             style={{ backgroundColor: "#74CD25" }}
+            type="submit"
           >
-            Login
+            Register
           </button>
 
           {/* Sign Up Link */}
@@ -150,8 +183,9 @@ export default function Register() {
             >
               Log In
             </button>
+            </div>
           </div>
-        </div>
+        </form>
 
         <div
           className="absolute -bottom-32 -right-32 w-64 h-64 rounded-full opacity-20 pointer-events-none"
