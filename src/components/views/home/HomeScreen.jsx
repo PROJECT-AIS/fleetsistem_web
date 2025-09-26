@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { ChevronDown, Menu, Users, Clock, Car, MapPin, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
@@ -8,15 +8,40 @@ import IconBang from "/assets/Iconimage.png";
 import SideBar from "../../utils/sidebar/SideBar";
 import Header from '../../utils/Header';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+// Util: hitung bearing (derajat 0-360) dari dua titik lat/lng
+function computeBearing(fromLat, fromLng, toLat, toLng) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+  const phi1 = toRad(fromLat);
+  const phi2 = toRad(toLat);
+  const dLambda = toRad(toLng - fromLng);
+  const y = Math.sin(dLambda) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.cos(phi2) * Math.cos(dLambda) - Math.sin(phi1) * Math.sin(phi2);
+  let brng = toDeg(Math.atan2(y, x));
+  brng = (brng + 360) % 360;
+  return brng;
+}
 
 const HomeScreen = () => {
+  // Rute GPS untuk polyline
+  const gpsPath = [
+    [-5.132132, 119.500958],
+    [-5.133734, 119.504865],
+    [-5.135291, 119.506632],
+    [-5.136228, 119.507596],
+    [-5.137361, 119.511503],
+    [-5.137361, 119.51211],
+    [-5.137482, 119.51541],
+    [-5.138291, 119.517625],
+    [-5.139099, 119.519506],
+    [-5.14089, 119.520986],
+    [-5.141706, 119.521623],
+  ];
+  const lastGps = gpsPath[gpsPath.length - 1];
+  const prevGps = gpsPath[gpsPath.length - 2] || lastGps;
+  const computedHeading = Math.round(
+    computeBearing(prevGps[0], prevGps[1], lastGps[0], lastGps[1])
+  );
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [activeTab, setActiveTab] = useState("cars");
   const [hoveredVehicle, setHoveredVehicle] = useState(null);
@@ -31,8 +56,8 @@ const HomeScreen = () => {
   const vehicleData = [
     {
       id: 1,
-      lat: -5.135,
-      lng: 119.423,
+      lat: lastGps[0],
+      lng: lastGps[1],
       status: "online",
       type: "excavator",
       name: "Excavator D",
@@ -42,6 +67,7 @@ const HomeScreen = () => {
       fuelLevel: 85,
       distance: "2.5 KM",
       time: "08:30",
+      heading: computedHeading,
     },
     {
       id: 2,
@@ -56,6 +82,7 @@ const HomeScreen = () => {
       fuelLevel: 92,
       distance: "1.8 KM",
       time: "09:15",
+      heading: 240,
     },
     {
       id: 3,
@@ -70,6 +97,7 @@ const HomeScreen = () => {
       fuelLevel: 45,
       distance: "5.2 KM",
       time: "07:45",
+      heading: 130,
     },
     {
       id: 4,
@@ -84,6 +112,7 @@ const HomeScreen = () => {
       fuelLevel: 78,
       distance: "3.1 KM",
       time: "08:00",
+      heading: 20,
     },
     {
       id: 5,
@@ -98,6 +127,7 @@ const HomeScreen = () => {
       fuelLevel: 67,
       distance: "4.3 KM",
       time: "08:45",
+      heading: 310,
     },
   ];
 
@@ -159,17 +189,22 @@ const HomeScreen = () => {
     lossCoordinate: 5,
   };
 
-  const focusedIcon = useMemo(() => {
-    return L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
-      iconSize: [35, 56],
-      iconAnchor: [17, 56],
-      popupAnchor: [1, -34],
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      shadowSize: [41, 41],
-      className: 'focused-marker',
+  // Icon dp.png berotasi mengikuti heading
+  const getRotatedIcon = (heading = 0) =>
+    L.divIcon({
+      className: "vehicle-marker",
+      html: `<img src="/assets/dp.png" style="width:39px;height:20px;transform:rotate(${heading}deg);" />`,
+      iconSize: [39, 20],
+      iconAnchor: [19, 20],
     });
-  }, []);
+
+  const getFocusedRotatedIcon = (heading = 0) =>
+    L.divIcon({
+      className: "focused-marker",
+      html: `<img src="/assets/dp.png" style="width:78px;height:40px;transform:rotate(${heading}deg);" />`,
+      iconSize: [78, 40],
+      iconAnchor: [39, 40],
+    });
 
   const handleVehicleClick = (vehicle) => {
     console.log('Marker clicked:', vehicle.name);
@@ -227,8 +262,8 @@ const HomeScreen = () => {
           <div className="p-3 pb-6 pointer-events-none">
             <div className="font-bold text-black text-sm">{vehicle.name}</div>
             <div className="text-xs text-gray-500 mb-1">No. Plat</div>
-            <span className="absolute right-3 bottom-3 px-3 py-0.5 rounded-full bg-[#74CD25] text-white font-semibold shadow text-xs pointer-events-none">
-              {vehicle.status === "online" ? "Aktif" : "Offline"}
+            <span className={`absolute right-3 bottom-3 px-3 py-0.5 rounded-full  ${vehicle.status === 'online' ? 'bg-[#74CD25] text-white' : 'bg-red-500 text-white'} text-white font-semibold shadow text-xs pointer-events-none`}>
+              {vehicle.status === "online" ? "Online" : "Offline"}
             </span>
           </div>
           {/* Arrow bawah */}
@@ -292,13 +327,18 @@ const HomeScreen = () => {
                       url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                       attribution="Fetched by Raffi Fadlika"
                     />
+                    {/* Polyline rute GPS */}
+                    <Polyline
+                      positions={gpsPath}
+                      pathOptions={{ color: "#74CD25", weight: 4, opacity: 0.9 }}
+                    />
                     {vehicleData.map((v) => {
                       const isSelected = selectedVehicle && v.id === selectedVehicle.id;
                       return (
                         <Marker
                           key={v.id + (isSelected ? '-selected' : '-default')}
                           position={[v.lat, v.lng]}
-                          {...(isSelected ? { icon: focusedIcon } : {})}
+                          icon={isSelected ? getFocusedRotatedIcon(v.heading) : getRotatedIcon(v.heading)}
                           eventHandlers={{
                             mouseover: () => {
                               const map = mapRef.current;
@@ -388,7 +428,7 @@ const HomeScreen = () => {
                     <div>
                       <div className="text-2xl font-extrabold text-[#74CD25] mb-1">{selectedVehicle.name}</div>
                       <div className="text-xs text-gray-400 mb-1">{selectedVehicle.lastLocation}</div>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${selectedVehicle.status === 'online' ? 'bg-[#74CD25] text-white' : 'bg-red-500 text-white'}`}>{selectedVehicle.status === 'online' ? 'Online' : 'Offline'}</span>
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${selectedVehicle.status === 'online' ? 'bg-[#74CD25] text-white' : 'bg-red-500 text-white'}`}>{selectedVehicle.status === 'online' ? 'Aktif' : 'Tidak Aktif'}</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center mb-2">
@@ -411,7 +451,10 @@ const HomeScreen = () => {
                   <h3 className="text-xl font-bold mb-5 text-white">Last Trip</h3>
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                     {tripHistory.slice(0, 8).map((trip, idx) => (
-                      <div key={trip.id + idx} className="flex items-center space-x-3 p-3 rounded-xl bg-[#232526] hover:bg-[#2e2e2e] transition">
+                      <div
+                        key={trip.id + idx}
+                        className="flex items-center space-x-3 p-3 rounded-xl bg-[#232526] hover:bg-[#2e2e2e] transition"
+                      >
                         <div className="w-3 h-3 rounded-full bg-[#74CD25] mr-2"></div>
                         <div className="flex-1">
                           <div className="text-base font-semibold text-white">{trip.location}</div>
