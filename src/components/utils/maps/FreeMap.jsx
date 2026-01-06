@@ -3,11 +3,36 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-const FreeMap = ({ vehicles }) => {
+// Pre-create icons ONCE outside component to avoid re-creation
+const defaultIcon = L.icon({
+  iconUrl: '/assets/dp.png',
+  iconSize: [39, 20],
+  iconAnchor: [19.5, 10],
+});
+
+const selectedIcon = L.icon({
+  iconUrl: '/assets/selected-vehicle.png',
+  iconSize: [50, 50],
+  iconAnchor: [25, 25],
+});
+
+const FreeMap = ({
+  vehicles,
+  selectedVehicle,
+  onVehicleClick,
+  onVehicleHover,
+  onVehicleLeave
+}) => {
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const markersMapRef = useRef(new Map()); // Store markers by vehicle id
+  const hoveredIdRef = useRef(null);
 
-  // Init map sekali
+  // Store callbacks in refs
+  const callbacksRef = useRef({ onVehicleClick, onVehicleHover, onVehicleLeave });
+  callbacksRef.current = { onVehicleClick, onVehicleHover, onVehicleLeave };
+
+  // Init map once
   useEffect(() => {
     if (mapRef.current) return;
 
@@ -34,43 +59,68 @@ const FreeMap = ({ vehicles }) => {
       }
     ).addTo(map);
 
-    // Pastikan ukuran valid setelah mount
     setTimeout(() => map.invalidateSize(), 0);
-
-    // Siapkan layer group untuk marker + polyline
     layerRef.current = L.layerGroup().addTo(map);
-
     mapRef.current = map;
   }, []);
 
-  // Render ulang layer saat vehicles berubah
+  // Update markers only when vehicles or selectedVehicle changes
   useEffect(() => {
     if (!mapRef.current || !layerRef.current) return;
     const group = layerRef.current;
     group.clearLayers();
+    markersMapRef.current.clear();
 
-    const defaultIcon = L.icon({
-      iconUrl: "/assets/dp.png",
-      iconSize: [39, 20],
-      iconAnchor: [19, 20],
-      popupAnchor: [0, -20],
-    });
+    (vehicles || []).forEach((v) => {
+      const isSelected = selectedVehicle?.id === v.id;
+      const marker = L.marker([v.lat, v.lng], {
+        icon: isSelected ? selectedIcon : defaultIcon,
+        rotationAngle: v.heading || 0
+      });
 
-    (vehicles || []).forEach((v, i) => {
-      const marker = L.marker([v.lat, v.lng], { icon: defaultIcon });
-      marker.bindPopup(`<b>${v.name ?? "Vehicle"}</b><br>Status: ${v.status ?? "-"}`);
+      // Click handler
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        const cb = callbacksRef.current.onVehicleClick;
+        if (cb) cb(v);
+      });
+
+      // Hover - only call if not already hovered on this vehicle
+      marker.on('mouseover', (e) => {
+        if (hoveredIdRef.current === v.id) return; // Already hovering, skip
+        hoveredIdRef.current = v.id;
+
+        const cb = callbacksRef.current.onVehicleHover;
+        if (cb) {
+          const el = e.target.getElement();
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            cb(v, { x: rect.left + rect.width / 2, y: rect.top });
+          }
+        }
+      });
+
+      marker.on('mouseout', () => {
+        hoveredIdRef.current = null;
+        const cb = callbacksRef.current.onVehicleLeave;
+        if (cb) cb();
+      });
+
       marker.addTo(group);
+      markersMapRef.current.set(v.id, marker);
 
-      const paths = v.paths || v.path;
-      if (Array.isArray(paths) && paths.length) {
-        const colors = ["#74CD25", "#00B4D8", "#F59E0B", "#EF4444", "#8B5CF6"];
-        const color = colors[i % colors.length];
-        L.polyline(paths, { color, weight: 3, opacity: 0.8 }).addTo(group);
+      // Draw path for selected vehicle
+      if (isSelected && v.path && v.path.length > 0) {
+        L.polyline(v.path, {
+          color: '#EF4444',
+          weight: 4,
+          opacity: 0.9
+        }).addTo(group);
       }
     });
-  }, [vehicles]);
+  }, [vehicles, selectedVehicle]);
 
-  return <div id="map" className="w-full h-[500px] rounded-lg" />;
+  return <div id="map" className="w-full h-full rounded-lg" />;
 };
 
 export default FreeMap;

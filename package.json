@@ -15,12 +15,14 @@
     "js-cookie": "^3.0.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.511.0",
+    "maplibre-gl": "^5.15.0",
     "prop-types": "^15.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-iframe": "^1.8.5",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.6.1",
+    "recharts": "^3.2.1",
     "tailwindcss": "^4.1.8"
   },
   "devDependencies": {

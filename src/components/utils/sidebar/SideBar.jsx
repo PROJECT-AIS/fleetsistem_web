@@ -1,4 +1,4 @@
-import { Car, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
+import { Car, ChevronLeft, ChevronRight, Clock, Compass } from 'lucide-react'
 import React, { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
@@ -50,6 +50,17 @@ export default function SideBar() {
         >
           <Clock className="w-6 h-6" />
           {isSidebarOpen && "History Data"}
+        </button>
+
+        <button
+          onClick={() => navigate('/kalibrasi')}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold shadow transition
+            ${isActive('/kalibrasi') ? 'bg-[#74CD25] text-white' : 'bg-transparent text-white hover:bg-[#343538]'}
+            ${!isSidebarOpen ? 'justify-center w-auto' : ''}
+          `}
+        >
+          <Compass className="w-6 h-6" />
+          {isSidebarOpen && "Kalibrasi"}
         </button>
       </nav>
     </div>

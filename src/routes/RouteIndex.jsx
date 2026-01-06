@@ -7,6 +7,7 @@ const Login = lazy(() => import('../components/auth/Login'))
 const Register = lazy(() => import('../components/auth/Register'))
 const ProfileScreen = lazy(() => import('../components/views/profile/ProfileScreen'))
 const History = lazy(() => import('../components/views/history/History'))
+const Kalibrasi = lazy(() => import('../components/views/kalibrasi/Kalibrasi'))
 
 function RouteIndex() {
   return (
@@ -17,6 +18,7 @@ function RouteIndex() {
           <Route path='/register' element={<Register />} />
           <Route path='/profile' element={<ProfileScreen />} />
           <Route path='/history' element={<History />} />
+          <Route path='/kalibrasi' element={<Kalibrasi />} />
       </Routes>
     </Suspense>
   )
