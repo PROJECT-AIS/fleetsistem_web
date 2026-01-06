@@ -23,23 +23,23 @@ export default function Login() {
     e.preventDefault();
 
     await api.post('/api/login', {
-        email: email,
-        password: password,
+      email: email,
+      password: password,
     })
-        .then(response => {
+      .then(response => {
 
-            Cookies.set('token', response.data.data.token);
-            Cookies.set('user', JSON.stringify(response.data.data.user));
+        Cookies.set('token', response.data.data.token);
+        Cookies.set('user', JSON.stringify(response.data.data.user));
 
-            setIsAuthenticated(true);
+        setIsAuthenticated(true);
 
-            navigate("/", { replace: true });
-        })
-        .catch(error => {
-            setValidation(error.response.data);
-            setLoginFailed(error.response.data);
-        })
-};
+        navigate("/", { replace: true });
+      })
+      .catch(error => {
+        setValidation(error.response.data);
+        setLoginFailed(error.response.data);
+      })
+  };
 
   return (
     <div
@@ -177,7 +177,7 @@ export default function Login() {
               <span className="text-white">Don't have an account? </span>
               <button
                 className="text-lime-500 hover:text-lime-400 transition-colors"
-                onClick={() => (window.location.href = "/register")}
+                onClick={() => navigate("/register")}
               >
                 Sign up
               </button>

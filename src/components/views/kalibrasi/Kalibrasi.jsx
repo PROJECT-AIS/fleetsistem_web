@@ -1,15 +1,13 @@
-import React from 'react'
-import Header from '../../utils/Header'
-import SideBar from '../../utils/sidebar/SideBar'
+import React from 'react';
+import PageLayout from '../../layout/PageLayout';
 
 export default function Kalibrasi() {
   return (
-    <div className="min-h-screen text-white" style={{ backgroundColor: "#1E1F22" }}>
-      {/* Header */}
-      <Header />
-      <div className="flex flex-1">
-        <SideBar />
+    <PageLayout className="p-6">
+      <h1 className="text-2xl font-bold text-white mb-6">Kalibrasi</h1>
+      <div className="rounded-xl p-6 bg-[#343538]">
+        <p className="text-gray-400">Halaman kalibrasi sedang dalam pengembangan.</p>
       </div>
-    </div>
-  )
+    </PageLayout>
+  );
 }

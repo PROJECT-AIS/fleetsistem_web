@@ -11,7 +11,6 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [validation, setValidation] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const register = async (e) => {
     e.preventDefault();
@@ -96,93 +95,93 @@ export default function Register() {
           {/* Login Form */}
           <div className="space-y-3">
             <div className="relative">
-            <User
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Name"
-              className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-              style={{ borderColor: name ? "#74CD25" : undefined }}
-            />
-          </div>
-
-          <div className="relative">
-            <Mail
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-              style={{ borderColor: email ? "#74CD25" : undefined }}
-            />
-          </div>
-
-          <div className="relative">
-            <Phone
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone"
-              className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-              style={{ borderColor: phone ? "#74CD25" : undefined }}
-            />
-          </div>
-
-          {/* Password Field */}
-          <div>
-            <div className="relative">
-              <Lock
+              <User
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
               />
               <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name"
                 className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
-                style={{ borderColor: password ? "#74CD25" : undefined }}
+                style={{ borderColor: name ? "#74CD25" : undefined }}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
-          </div>
 
-          {/* Login Button */}
-          <button
-            className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 mt-4"
-            style={{ backgroundColor: "#74CD25" }}
-            type="submit"
-          >
-            Register
-          </button>
+            <div className="relative">
+              <Mail
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
+                style={{ borderColor: email ? "#74CD25" : undefined }}
+              />
+            </div>
 
-          {/* Sign Up Link */}
-          <div className="text-center">
-            <span className="text-white">Already have an account? </span>
+            <div className="relative">
+              <Phone
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone"
+                className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
+                style={{ borderColor: phone ? "#74CD25" : undefined }}
+              />
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <div className="relative">
+                <Lock
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full pl-10 pr-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
+                  style={{ borderColor: password ? "#74CD25" : undefined }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Login Button */}
             <button
-              className="text-lime-500 hover:text-lime-400 transition-colors"
-              onClick={() => (window.location.href = "/login")}
+              className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 mt-4"
+              style={{ backgroundColor: "#74CD25" }}
+              type="submit"
             >
-              Log In
+              Register
             </button>
+
+            {/* Sign Up Link */}
+            <div className="text-center">
+              <span className="text-white">Already have an account? </span>
+              <button
+                className="text-lime-500 hover:text-lime-400 transition-colors"
+                onClick={() => navigate("/login")}
+              >
+                Log In
+              </button>
             </div>
           </div>
         </form>
