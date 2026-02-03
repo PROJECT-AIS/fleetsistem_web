@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import { X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import IconBang from "/assets/Iconimage.png";
 import PageLayout from "../../layout/PageLayout";
-import FreeMap from '../../utils/maps/FreeMap';
+import GoogleMap from '../../utils/maps/GoogleMap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { computeBearing } from "../../../utils/mapUtils";
 import { GPS_PATH_DEFAULT, generateVehicleData, DASHBOARD_STATS } from "../../../data/vehicleData";
@@ -63,6 +63,19 @@ const VehicleTooltip = React.memo(({ vehicle, position }) => {
 });
 
 // Memoized Vehicle Charts
+// Custom tooltip component for charts
+const CustomChartTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#2A2B2D] border border-[#74CD25] rounded-lg px-4 py-3 shadow-xl">
+        <p className="text-[#74CD25] font-bold text-lg mb-1">{payload[0].value} L</p>
+        <p className="text-gray-300 text-sm">{label}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
 const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
   <div className="grid grid-cols-2 gap-4 mt-4">
     <div className="rounded-lg p-4" style={{ backgroundColor: "#343538" }}>
@@ -74,8 +87,8 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
             <CartesianGrid strokeDasharray="3 3" stroke="#444" />
             <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} />
             <YAxis hide />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ r: 4, fill: "#74CD25" }} />
+            <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
+            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -89,8 +102,8 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
             <CartesianGrid strokeDasharray="3 3" stroke="#444" />
             <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} />
             <YAxis hide />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ r: 4, fill: "#74CD25" }} />
+            <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
+            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -117,18 +130,42 @@ const DetailRow = React.memo(({ label, value, onEdit }) => (
 ));
 
 // Memoized Sidebar Card with expandable detail
-const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleExpand }) => (
-  <div className="rounded-xl shadow-lg overflow-hidden bg-[#4A4B4D]">
-    <div className="bg-[#5A5B5D] px-5 py-3">
+const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleExpand, onPrev, onNext, canGoPrev, canGoNext }) => (
+  <div className="rounded-xl shadow-lg overflow-visible bg-[#4A4B4D] relative">
+    {/* Header with Close Button */}
+    <div className="bg-[#5A5B5D] px-5 py-3 flex items-center justify-between rounded-t-xl">
       <h3 className="text-lg font-bold text-white">Cars</h3>
-    </div>
-    <div className="p-5 relative">
-      {/* Navigation Arrows */}
-      <button className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-6 h-6 rounded-full bg-[#343538] text-gray-400 hover:text-white flex items-center justify-center shadow">
-        <ChevronLeft className="w-4 h-4" />
+      <button
+        className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all hover:scale-110 shadow-lg"
+        onClick={onClose}
+        title="Close"
+      >
+        <X className="w-4 h-4" />
       </button>
-      <button className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-6 h-6 rounded-full bg-[#343538] text-gray-400 hover:text-white flex items-center justify-center shadow">
-        <ChevronRight className="w-4 h-4" />
+    </div>
+    <div className="p-5">
+      {/* Navigation Arrows - Positioned outside the card */}
+      <button
+        className={`absolute -left-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 z-10 ${canGoPrev
+          ? 'bg-gradient-to-r from-[#74CD25] to-[#5fa01c] text-white hover:shadow-[0_0_15px_rgba(116,205,37,0.5)] hover:scale-110 cursor-pointer'
+          : 'bg-[#343538] text-gray-600 cursor-not-allowed opacity-50'
+          }`}
+        onClick={onPrev}
+        disabled={!canGoPrev}
+        title="Previous Vehicle"
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+      <button
+        className={`absolute -right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 z-10 ${canGoNext
+          ? 'bg-gradient-to-r from-[#74CD25] to-[#5fa01c] text-white hover:shadow-[0_0_15px_rgba(116,205,37,0.5)] hover:scale-110 cursor-pointer'
+          : 'bg-[#343538] text-gray-600 cursor-not-allowed opacity-50'
+          }`}
+        onClick={onNext}
+        disabled={!canGoNext}
+        title="Next Vehicle"
+      >
+        <ChevronRight className="w-5 h-5" />
       </button>
 
       <div className="flex items-start justify-between">
@@ -148,13 +185,6 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
             className="w-28 h-24 object-cover rounded-lg shadow-md"
             loading="lazy"
           />
-          <button
-            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-semibold shadow hover:bg-red-600 transition flex items-center justify-center"
-            onClick={onClose}
-            title="Tutup"
-          >
-            <X className="w-3 h-3" />
-          </button>
         </div>
       </div>
 
@@ -164,27 +194,22 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
           <DetailRow
             label="Nama Operator"
             value={vehicle.operatorName || "Pak Gun"}
-            onEdit={() => console.log('Edit Nama Operator')}
           />
           <DetailRow
             label="ID Operator"
             value={vehicle.operatorId || "XXXXXX-1"}
-            onEdit={() => console.log('Edit ID Operator')}
           />
           <DetailRow
             label="Jabatan"
             value={vehicle.jabatan || "Lorem Ipsum"}
-            onEdit={() => console.log('Edit Jabatan')}
           />
           <DetailRow
             label="Divisi"
             value={vehicle.divisi || "Lorem Ipsum"}
-            onEdit={() => console.log('Edit Divisi')}
           />
           <DetailRow
             label="Nomor Plat"
             value={vehicle.plateNumber || "Lorem Ipsum"}
-            onEdit={() => console.log('Edit Nomor Plat')}
           />
         </div>
       </div>
@@ -283,6 +308,29 @@ const HomeScreen = () => {
     setIsDetailExpanded(prev => !prev);
   }, []);
 
+  // Navigation handlers for cycling through vehicles
+  const currentVehicleIndex = useMemo(() => {
+    if (!selectedVehicle) return -1;
+    return vehicleData.findIndex(v => v.id === selectedVehicle.id);
+  }, [selectedVehicle, vehicleData]);
+
+  const handlePrevVehicle = useCallback(() => {
+    if (currentVehicleIndex > 0) {
+      setSelectedVehicle(vehicleData[currentVehicleIndex - 1]);
+      setIsDetailExpanded(false);
+    }
+  }, [currentVehicleIndex, vehicleData]);
+
+  const handleNextVehicle = useCallback(() => {
+    if (currentVehicleIndex < vehicleData.length - 1) {
+      setSelectedVehicle(vehicleData[currentVehicleIndex + 1]);
+      setIsDetailExpanded(false);
+    }
+  }, [currentVehicleIndex, vehicleData]);
+
+  const canGoPrev = currentVehicleIndex > 0;
+  const canGoNext = currentVehicleIndex < vehicleData.length - 1 && currentVehicleIndex >= 0;
+
   return (
     <PageLayout className="p-6">
       <div className="flex gap-6">
@@ -309,7 +357,7 @@ const HomeScreen = () => {
             style={{ backgroundColor: "#343538" }}
           >
             <div className={selectedVehicle ? "h-[500px] rounded overflow-hidden transition-all duration-500" : "h-[600px] rounded overflow-hidden transition-all duration-500 w-full"}>
-              <FreeMap
+              <GoogleMap
                 vehicles={vehicleData}
                 selectedVehicle={selectedVehicle}
                 onVehicleClick={handleVehicleClick}
@@ -334,6 +382,10 @@ const HomeScreen = () => {
               onClose={handleCloseVehicle}
               isExpanded={isDetailExpanded}
               onToggleExpand={handleToggleExpand}
+              onPrev={handlePrevVehicle}
+              onNext={handleNextVehicle}
+              canGoPrev={canGoPrev}
+              canGoNext={canGoNext}
             />
             <TripHistoryCard tripHistory={tripHistory} />
           </div>

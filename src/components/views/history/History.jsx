@@ -107,7 +107,7 @@ export default function History() {
       <div className="overflow-x-auto rounded-xl shadow-xl">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="bg-[#74CD25] text-white">
+            <tr className="bg-[#5FA81E] text-white">
               <th className="px-4 py-3 text-left">No</th>
               <th className="px-4 py-3 text-left">Waktu</th>
               <th className="px-4 py-3 text-left">ID Alat</th>

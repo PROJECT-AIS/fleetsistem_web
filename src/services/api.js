@@ -1,7 +1,44 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
+
+// Use the current hostname for API calls - works for both localhost and network access
+const API_HOST = window.location.hostname;
+const API_PORT = 6969;
+const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
 
 const api = axios.create({
-    baseURL: 'http://localhost:6969'
+    baseURL: API_BASE_URL
 });
+
+// Add request interceptor to include token in all requests
+api.interceptors.request.use(
+    (config) => {
+        const token = Cookies.get('token');
+        if (token) {
+            config.headers.Authorization = token;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor to handle token expiration
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            // Token expired or invalid - clear auth state
+            Cookies.remove('token');
+            Cookies.remove('user');
+            // Redirect to login if not already there
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 export default api;

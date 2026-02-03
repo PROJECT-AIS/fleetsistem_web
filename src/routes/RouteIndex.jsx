@@ -1,5 +1,23 @@
 import React, { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
+import { ProtectedRoute, PublicRoute } from '../components/auth/ProtectedRoute'
+
+// Loading component
+const LoadingFallback = () => (
+  <div style={{ color: '#fff', padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#1E1F22' }}>
+    <div className="flex flex-col items-center gap-4">
+      <div style={{
+        width: 48,
+        height: 48,
+        border: '4px solid #74CD25',
+        borderTopColor: 'transparent',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }}></div>
+      <span>Loading...</span>
+    </div>
+  </div>
+);
 
 // Lazy load semua halaman agar hanya route aktif yang di-load
 const HomeScreen = lazy(() => import('../components/views/home/HomeScreen'))
@@ -11,14 +29,59 @@ const Kalibrasi = lazy(() => import('../components/views/kalibrasi/Kalibrasi'))
 
 function RouteIndex() {
   return (
-    <Suspense fallback={<div style={{color:'#fff', padding:16}}>Loading...</div>}>
+    <Suspense fallback={<LoadingFallback />}>
       <Routes>
-          <Route path="/" element={<HomeScreen />} />
-          <Route path='/login' element={<Login />} />
-          <Route path='/register' element={<Register />} />
-          <Route path='/profile' element={<ProfileScreen />} />
-          <Route path='/history' element={<History />} />
-          <Route path='/kalibrasi' element={<Kalibrasi />} />
+        {/* Public routes - redirect to home if already logged in */}
+        <Route
+          path='/login'
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path='/register'
+          element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          }
+        />
+
+        {/* Protected routes - require authentication */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <HomeScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/profile'
+          element={
+            <ProtectedRoute>
+              <ProfileScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/history'
+          element={
+            <ProtectedRoute>
+              <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/kalibrasi'
+          element={
+            <ProtectedRoute>
+              <Kalibrasi />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Suspense>
   )

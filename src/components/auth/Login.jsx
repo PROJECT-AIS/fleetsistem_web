@@ -1,44 +1,63 @@
 import React, { useContext, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../services/api";
 import Cookies from "js-cookie";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const { setIsAuthenticated } = useContext(AuthContext);
+  const { setIsAuthenticated, setUser } = useContext(AuthContext);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [validation, setValidation] = useState([]);
   const [loginFailed, setLoginFailed] = useState([]);
 
   const login = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setValidation([]);
+    setLoginFailed([]);
 
-    await api.post('/api/login', {
-      email: email,
-      password: password,
-    })
-      .then(response => {
+    try {
+      const response = await api.post('/api/login', {
+        email: email,
+        password: password,
+      });
 
-        Cookies.set('token', response.data.data.token);
-        Cookies.set('user', JSON.stringify(response.data.data.user));
+      if (response.data.success) {
+        const { token, user } = response.data.data;
 
+        // Store token and user in cookies
+        Cookies.set('token', token, { expires: rememberMe ? 7 : 1 });
+        Cookies.set('user', JSON.stringify(user), { expires: rememberMe ? 7 : 1 });
+
+        setUser(user);
         setIsAuthenticated(true);
 
-        navigate("/", { replace: true });
-      })
-      .catch(error => {
+        // Navigate to intended destination or home
+        const from = location.state?.from?.pathname || "/";
+        navigate(from, { replace: true });
+      }
+    } catch (error) {
+      if (error.response?.data?.errors) {
         setValidation(error.response.data);
+      } else if (error.response?.data?.message) {
         setLoginFailed(error.response.data);
-      })
+      } else {
+        setLoginFailed({ message: "An error occurred. Please try again." });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,7 +66,7 @@ export default function Login() {
       style={{ backgroundColor: "#1E1F22" }}
     >
       {/* Left Side - Image Section */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative hidden md:block">
         <img
           src="/assets/gambar_exca.png"
           alt="gambar exca"
@@ -68,7 +87,7 @@ export default function Login() {
           </div>
 
           {/* Welcome Text */}
-          <div className="text-white hidden md:block">
+          <div className="text-white">
             <h1 className="text-5xl font-bold mb-2">Welcome to</h1>
             <h2 className="text-4xl font-bold">Fleet Management System</h2>
           </div>
@@ -82,7 +101,19 @@ export default function Login() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-96 p-8 flex flex-col justify-center relative">
+      <div className="w-full md:w-96 p-8 flex flex-col justify-center relative">
+        {/* Mobile logo */}
+        <div className="flex items-center space-x-2 mb-8 md:hidden">
+          <div className="w-8 h-8 relative">
+            <img
+              src="/logo_ais.png"
+              alt="Triangle Logo"
+              className="w-full h-full"
+            />
+          </div>
+          <span className="text-white text-xl font-bold">FMS</span>
+        </div>
+
         {/* Welcome Back */}
         <div className="mb-8">
           <h3 className="text-white text-3xl font-bold mb-1">Welcome</h3>
@@ -119,6 +150,7 @@ export default function Login() {
                 placeholder="Enter your email"
                 className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors"
                 style={{ borderColor: email ? "#74CD25" : undefined }}
+                disabled={loading}
               />
             </div>
 
@@ -135,6 +167,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   className="w-full px-4 py-3 bg-transparent border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-lime-500 transition-colors pr-12"
                   style={{ borderColor: password ? "#74CD25" : undefined }}
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -158,24 +191,36 @@ export default function Login() {
                 />
                 <span className="text-white text-sm">Remember me</span>
               </label>
-              <button className="text-white text-sm hover:text-lime-500 transition-colors">
+              <button
+                type="button"
+                className="text-white text-sm hover:text-lime-500 transition-colors"
+              >
                 Forgot Password
               </button>
             </div>
 
             {/* Login Button */}
             <button
-              className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
+              className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{ backgroundColor: "#74CD25" }}
               type="submit"
+              disabled={loading}
             >
-              Login
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Logging in...
+                </>
+              ) : (
+                "Login"
+              )}
             </button>
 
             {/* Sign Up Link */}
             <div className="text-center">
               <span className="text-white">Don't have an account? </span>
               <button
+                type="button"
                 className="text-lime-500 hover:text-lime-400 transition-colors"
                 onClick={() => navigate("/register")}
               >
