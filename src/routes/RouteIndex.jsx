@@ -25,7 +25,8 @@ const Login = lazy(() => import('../components/auth/Login'))
 const Register = lazy(() => import('../components/auth/Register'))
 const ProfileScreen = lazy(() => import('../components/views/profile/ProfileScreen'))
 const History = lazy(() => import('../components/views/history/History'))
-const Kalibrasi = lazy(() => import('../components/views/kalibrasi/Kalibrasi'))
+const ConfigScreen = lazy(() => import('../components/views/config/ConfigScreen'))
+const ShowConfigScreen = lazy(() => import('../components/views/showconfig/ShowConfigScreen'))
 
 function RouteIndex() {
   return (
@@ -75,10 +76,18 @@ function RouteIndex() {
           }
         />
         <Route
-          path='/kalibrasi'
+          path='/config'
           element={
             <ProtectedRoute>
-              <Kalibrasi />
+              <ConfigScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/show-config'
+          element={
+            <ProtectedRoute>
+              <ShowConfigScreen />
             </ProtectedRoute>
           }
         />

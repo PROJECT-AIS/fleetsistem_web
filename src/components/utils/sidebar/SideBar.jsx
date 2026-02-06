@@ -1,68 +1,85 @@
-import { Car, ChevronLeft, ChevronRight, Clock, Compass } from 'lucide-react'
-import React, { useState } from 'react'
+import { Car, ChevronLeft, ChevronRight, Clock, Settings, Table2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function SideBar() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // Persist sidebar state in localStorage
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('sidebarOpen')
+    return saved === 'true'
+  })
   const location = useLocation()
   const navigate = useNavigate()
 
+  // Save sidebar state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', isSidebarOpen)
+  }, [isSidebarOpen])
+
   const isActive = (path) => location.pathname === path
 
+  const menuItems = [
+    { path: '/', icon: Car, label: 'Dashboard' },
+    { path: '/history', icon: Clock, label: 'History' },
+    { path: '/config', icon: Settings, label: 'Config' },
+    { path: '/show-config', icon: Table2, label: 'Show Config' },
+  ]
+
   return (
-    <div
-      className={`
-        min-h-screen flex flex-col bg-transparent shadow-2xl border-r border-[#343538] py-8 px-4
-        transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'w-64' : 'w-20 items-center'}
-      `}
-    >
-      <button
-        className="self-end p-3 rounded-full bg-[#343538] text-gray-400 hover:bg-gray-600 transition-colors duration-200 mb-3"
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        title={isSidebarOpen ? "Tutup Sidebar" : "Buka Sidebar"}
+    <div className="min-h-screen flex flex-col py-6 px-3">
+      {/* Sidebar Card Container - Full Height */}
+      <div
+        className={`
+          bg-[#343538] rounded-2xl shadow-xl flex flex-col flex-1
+          transition-all duration-300 ease-in-out
+          ${isSidebarOpen ? 'w-52 px-4 py-5' : 'w-16 px-2 py-5 items-center'}
+        `}
       >
-        {isSidebarOpen ? (
-          <ChevronLeft className="w-7 h-7" />
-        ) : (
-          <ChevronRight className="w-7 h-7" />
-        )}
-      </button>
-
-      <nav className="flex flex-col gap-2 mt-2">
+        {/* Toggle Button */}
         <button
-          onClick={() => navigate('/')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold shadow transition
-            ${isActive('/') ? 'bg-[#74CD25] text-white' : 'bg-transparent text-white hover:bg-[#343538]'}
-            ${!isSidebarOpen ? 'justify-center w-auto' : ''}
+          className={`
+            p-2 rounded-xl bg-[#4A4B4D] text-gray-300 hover:bg-[#5A5B5D] hover:text-white 
+            transition-all duration-200 mb-6
+            ${isSidebarOpen ? 'self-end' : 'self-center'}
           `}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          title={isSidebarOpen ? "Tutup Sidebar" : "Buka Sidebar"}
         >
-          <Car className="w-6 h-6" />
-          {isSidebarOpen && "Dashboard"}
+          {isSidebarOpen ? (
+            <ChevronLeft className="w-5 h-5" />
+          ) : (
+            <ChevronRight className="w-5 h-5" />
+          )}
         </button>
 
-        <button
-          onClick={() => navigate('/history')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold shadow transition
-            ${isActive('/history') ? 'bg-[#74CD25] text-white' : 'bg-transparent text-white hover:bg-[#343538]'}
-            ${!isSidebarOpen ? 'justify-center w-auto' : ''}
-          `}
-        >
-          <Clock className="w-6 h-6" />
-          {isSidebarOpen && "History Data"}
-        </button>
-
-        <button
-          onClick={() => navigate('/kalibrasi')}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold shadow transition
-            ${isActive('/kalibrasi') ? 'bg-[#74CD25] text-white' : 'bg-transparent text-white hover:bg-[#343538]'}
-            ${!isSidebarOpen ? 'justify-center w-auto' : ''}
-          `}
-        >
-          <Compass className="w-6 h-6" />
-          {isSidebarOpen && "Kalibrasi"}
-        </button>
-      </nav>
+        {/* Navigation Menu */}
+        <nav className="flex flex-col gap-3">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.path)
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`
+                  flex items-center gap-3 rounded-xl font-semibold transition-all duration-200
+                  ${isSidebarOpen ? 'px-4 py-3' : 'p-3 justify-center'}
+                  ${active
+                    ? 'bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30'
+                    : 'bg-[#4A4B4D] text-gray-300 hover:bg-[#5A5B5D] hover:text-white'
+                  }
+                `}
+                title={!isSidebarOpen ? item.label : undefined}
+              >
+                <Icon className="w-6 h-6 flex-shrink-0" />
+                {isSidebarOpen && (
+                  <span className="whitespace-nowrap">{item.label}</span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
     </div>
   )
 }

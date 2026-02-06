@@ -12,7 +12,7 @@ export default function PageLayout({ children, className = '' }) {
             <Header />
             <div className="flex">
                 <SideBar />
-                <main className={`flex-1 ${className}`}>
+                <main className={`flex-1 overflow-x-hidden ${className}`}>
                     {children}
                 </main>
             </div>

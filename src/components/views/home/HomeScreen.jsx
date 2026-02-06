@@ -78,34 +78,45 @@ const CustomChartTooltip = ({ active, payload, label }) => {
 
 const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
   <div className="grid grid-cols-2 gap-4 mt-4">
-    <div className="rounded-lg p-4" style={{ backgroundColor: "#343538" }}>
-      <h3 className="text-lg font-semibold mb-2">Volume Bahan Bakar Realtime</h3>
-      <div className="text-sm text-gray-400">Kamis, 29/05/2025</div>
-      <div className="mt-4 h-32 flex items-center justify-center">
-        <ResponsiveContainer width="100%" height={80}>
-          <LineChart data={fuelData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-            <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} />
-            <YAxis hide />
-            <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
-          </LineChart>
-        </ResponsiveContainer>
+    {/* Volume Bahan Bakar Realtime */}
+    <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
+      <div className="bg-[#5A5B5D] px-5 py-3">
+        <h3 className="text-lg font-bold text-white">Volume Bahan Bakar Realtime</h3>
+      </div>
+      <div className="p-5">
+        <div className="text-sm text-gray-400 mb-2">Kamis, 29/05/2025</div>
+        <div className="h-32 flex items-center justify-center">
+          <ResponsiveContainer width="100%" height={100}>
+            <LineChart data={fuelData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} />
+              <YAxis hide />
+              <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
-    <div className="rounded-lg p-4" style={{ backgroundColor: "#343538" }}>
-      <h3 className="text-lg font-semibold mb-2">Konsumsi Bahan Bakar</h3>
-      <div className="text-sm text-gray-400">Per Minggu</div>
-      <div className="mt-4 h-32 flex items-center justify-center">
-        <ResponsiveContainer width="100%" height={80}>
-          <LineChart data={weeklyFuel}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-            <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} />
-            <YAxis hide />
-            <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
-          </LineChart>
-        </ResponsiveContainer>
+
+    {/* Konsumsi Bahan Bakar */}
+    <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
+      <div className="bg-[#5A5B5D] px-5 py-3">
+        <h3 className="text-lg font-bold text-white">Konsumsi Bahan Bakar</h3>
+      </div>
+      <div className="p-5">
+        <div className="text-sm text-gray-400 mb-2">Per Minggu</div>
+        <div className="h-32 flex items-center justify-center">
+          <ResponsiveContainer width="100%" height={100}>
+            <LineChart data={weeklyFuel}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} />
+              <YAxis hide />
+              <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   </div>

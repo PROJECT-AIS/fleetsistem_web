@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
             const token = Cookies.get('token');
             if (token) {
                 try {
-                    const response = await api.get('/api/me', {
+                    const response = await api.get('/me', {
                         headers: { Authorization: token }
                     });
                     if (response.data.success) {
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
 
     // Login function
     const login = useCallback(async (email, password) => {
-        const response = await api.post('/api/login', { email, password });
+        const response = await api.post('/login', { email, password });
 
         if (response.data.success) {
             const { token, user } = response.data.data;

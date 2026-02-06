@@ -1,3 +1,61 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 @import "./styles/animations.css";
+
+/* ========== Custom Scrollbar Styles ========== */
+
+/* Universal beautiful scrollbar - Chrome, Safari, Edge */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1b1e;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #5FA81E 0%, #74CD25 50%, #4A8516 100%);
+  border-radius: 10px;
+  border: 2px solid #1a1b1e;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #74CD25 0%, #8AE035 50%, #5FA81E 100%);
+}
+
+::-webkit-scrollbar-corner {
+  background: #1a1b1e;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #5FA81E #1a1b1e;
+}
+
+/* Hide scrollbar utility class */
+.scrollbar-hide {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Thin scrollbar variant */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(95, 168, 30, 0.6);
+  border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(116, 205, 37, 0.8);
+}

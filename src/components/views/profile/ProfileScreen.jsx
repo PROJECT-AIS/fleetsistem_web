@@ -98,7 +98,7 @@ export default function ProfileScreen() {
     setMessage({ type: "", text: "" });
 
     try {
-      const response = await api.put('/api/profile', {
+      const response = await api.put('/profile', {
         name: form.name,
         phone: form.phone,
       });
@@ -165,7 +165,7 @@ export default function ProfileScreen() {
       const formData = new FormData();
       formData.append('profileImage', file);
 
-      const response = await api.post('/api/profile/image', formData, {
+      const response = await api.post('/profile/image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -197,7 +197,7 @@ export default function ProfileScreen() {
     setMessage({ type: "", text: "" });
 
     try {
-      const response = await api.delete('/api/profile/image');
+      const response = await api.delete('/profile/image');
 
       if (response.data.success) {
         setUser(response.data.data);
@@ -236,8 +236,8 @@ export default function ProfileScreen() {
       {/* Message Alert */}
       {message.text && (
         <div className={`w-full max-w-3xl mb-4 p-4 rounded-lg flex items-center justify-between ${message.type === "success"
-            ? "bg-green-900/50 border border-green-500 text-green-300"
-            : "bg-red-900/50 border border-red-500 text-red-300"
+          ? "bg-green-900/50 border border-green-500 text-green-300"
+          : "bg-red-900/50 border border-red-500 text-red-300"
           }`}>
           <span>{message.text}</span>
           <button onClick={() => setMessage({ type: "", text: "" })} className="p-1 hover:opacity-75">

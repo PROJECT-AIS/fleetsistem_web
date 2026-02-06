@@ -4,7 +4,7 @@ import Cookies from 'js-cookie';
 // Use the current hostname for API calls - works for both localhost and network access
 const API_HOST = window.location.hostname;
 const API_PORT = 6969;
-const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
+const API_BASE_URL = `http://${API_HOST}:${API_PORT}/api`;
 
 const api = axios.create({
     baseURL: API_BASE_URL
