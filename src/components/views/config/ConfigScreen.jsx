@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Settings, Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, Eye, EyeOff, Check, Loader2 } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, kalibrasiService, pengawasService } from "../../../services/configService";
+import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA6myHzS10YXdcazAFalmXvDkrYCp5cLc8';
 
 // Main Tab data
 const TABS = [
@@ -256,8 +259,14 @@ const InputDataOperator = ({ showToast }) => {
 
 // Input Data Lokasi Component
 const InputDataLokasi = ({ showToast }) => {
-    const [form, setForm] = useState({ nama: "", jenisLokasi: "", latitude: "", longitude: "", radius: "", deskripsi: "" });
+    const [form, setForm] = useState({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
     const [loading, setLoading] = useState(false);
+    const mapRef = useRef(null);
+
+    const { isLoaded, loadError } = useJsApiLoader({
+        id: 'google-map-script-lokasi',
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY
+    });
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -267,7 +276,7 @@ const InputDataLokasi = ({ showToast }) => {
         try {
             await lokasiService.create(form);
             showToast("Data lokasi berhasil disimpan", "success");
-            setForm({ nama: "", jenisLokasi: "", latitude: "", longitude: "", radius: "", deskripsi: "" });
+            setForm({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menyimpan data lokasi", "error");
         } finally {
@@ -275,41 +284,112 @@ const InputDataLokasi = ({ showToast }) => {
         }
     };
 
+    const onMapLoad = useCallback((map) => {
+        mapRef.current = map;
+    }, []);
+
+    // Parse koordinat dan radius
+    const lat = parseFloat(form.latitude);
+    const lng = parseFloat(form.longitude);
+    const radius = parseFloat(form.radius) || 100;
+    const hasValidCoords = !isNaN(lat) && !isNaN(lng);
+
+    // Map options
+    const mapOptions = {
+        mapTypeId: 'hybrid',
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false,
+        styles: [
+            { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+            { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+        ]
+    };
+
+    // Circle options dengan warna hijau sesuai tema
+    const circleOptions = {
+        strokeColor: '#74CD25',
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: '#74CD25',
+        fillOpacity: 0.25,
+        clickable: false,
+        draggable: false,
+        editable: false,
+        visible: true,
+        zIndex: 1
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput label="Nama Lokasi" name="nama" value={form.nama} onChange={handleChange} placeholder="Site A" required />
-                <FormSelect label="Jenis Lokasi" name="jenisLokasi" value={form.jenisLokasi} onChange={handleChange}
-                    options={[
-                        { value: "Site Tambang", label: "Site Tambang" },
-                        { value: "Workshop", label: "Workshop" },
-                        { value: "Fuel Station", label: "Fuel Station" },
-                        { value: "Area Parkir", label: "Area Parkir" },
-                        { value: "Geofence", label: "Geofence Area" },
-                    ]} required />
+                <div className="md:col-span-2">
+                    <FormInput label="Nama Lokasi" name="name" value={form.name} onChange={handleChange} placeholder="Site A" required />
+                </div>
                 <FormInput label="Latitude" name="latitude" value={form.latitude} onChange={handleChange} placeholder="-5.123456" required />
                 <FormInput label="Longitude" name="longitude" value={form.longitude} onChange={handleChange} placeholder="119.123456" required />
                 <FormInput label="Radius (meter)" name="radius" value={form.radius} onChange={handleChange} type="number" placeholder="500" required />
-                <div>
-                    <label className="text-sm text-gray-400 block mb-1.5">Deskripsi</label>
-                    <textarea name="deskripsi" value={form.deskripsi} onChange={handleChange} placeholder="Deskripsi lokasi..." rows={3}
-                        className="w-full bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none resize-none" />
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-sm text-gray-400">Type</label>
+                    <div className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] flex items-center gap-2">
+                        <span className="text-[#74CD25] font-medium">● Circle</span>
+                        <span className="text-gray-500 text-xs">(Auto)</span>
+                    </div>
                 </div>
             </div>
-            <div className="bg-[#2d2e32] rounded-lg p-4 border border-dashed border-[#4a4b4d] h-48 flex items-center justify-center">
-                {form.latitude && form.longitude ? (
-                    <div className="text-center">
-                        <MapPin className="w-10 h-10 mx-auto mb-2 text-[#74CD25]" />
-                        <p className="text-white font-medium">Lokasi: {form.latitude}, {form.longitude}</p>
-                        <p className="text-gray-400 text-sm">Radius: {form.radius || "0"} meter</p>
+
+            {/* Google Maps Preview */}
+            <div className="bg-[#2d2e32] rounded-lg overflow-hidden border border-[#4a4b4d]" style={{ height: '300px' }}>
+                {loadError && (
+                    <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-red-500">Error loading Google Maps</p>
                     </div>
-                ) : (
-                    <p className="text-gray-500 text-center">
-                        <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        Masukkan koordinat untuk preview
-                    </p>
+                )}
+                {!isLoaded && !loadError && (
+                    <div className="w-full h-full flex items-center justify-center bg-[#2d2e32]">
+                        <Loader2 className="w-6 h-6 text-[#74CD25] animate-spin" />
+                        <span className="ml-2 text-gray-400">Loading map...</span>
+                    </div>
+                )}
+                {isLoaded && !hasValidCoords && (
+                    <div className="w-full h-full flex items-center justify-center">
+                        <div className="text-center">
+                            <MapPin className="w-10 h-10 mx-auto mb-2 text-gray-500 opacity-50" />
+                            <p className="text-gray-500">Masukkan koordinat untuk preview lokasi</p>
+                        </div>
+                    </div>
+                )}
+                {isLoaded && hasValidCoords && (
+                    <GoogleMap
+                        mapContainerStyle={{ width: '100%', height: '100%' }}
+                        center={{ lat, lng }}
+                        zoom={15}
+                        options={mapOptions}
+                        onLoad={onMapLoad}
+                    >
+                        {/* Marker di titik pusat */}
+                        <Marker position={{ lat, lng }} />
+                        {/* Circle geofence */}
+                        <Circle
+                            center={{ lat, lng }}
+                            radius={radius}
+                            options={circleOptions}
+                        />
+                    </GoogleMap>
                 )}
             </div>
+
+            {/* Info koordinat */}
+            {hasValidCoords && (
+                <div className="flex items-center gap-4 text-sm text-gray-400 bg-[#2d2e32] px-4 py-2 rounded-lg">
+                    <span><strong className="text-white">Lat:</strong> {lat.toFixed(6)}</span>
+                    <span><strong className="text-white">Lng:</strong> {lng.toFixed(6)}</span>
+                    <span><strong className="text-white">Radius:</strong> {radius} meter</span>
+                </div>
+            )}
+
             <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
