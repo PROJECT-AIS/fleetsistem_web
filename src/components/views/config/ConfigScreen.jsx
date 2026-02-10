@@ -3,8 +3,11 @@ import { Settings, Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, 
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
+import mqtt from 'mqtt';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA6myHzS10YXdcazAFalmXvDkrYCp5cLc8';
+const MQTT_BROKER_URL = 'wss://mqtt.aistrack.site:443';
+const MQTT_TOPIC = 'fms/web';
 
 // Main Tab data
 const TABS = [
@@ -264,18 +267,46 @@ const InputDataLokasi = ({ showToast }) => {
     const mapRef = useRef(null);
 
     const { isLoaded, loadError } = useJsApiLoader({
-        id: 'google-map-script-lokasi',
+        id: 'google-map-script',
         googleMapsApiKey: GOOGLE_MAPS_API_KEY
     });
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+    // Function to publish MQTT message
+    const publishMqttMessage = (lokasiData) => {
+        const client = mqtt.connect(MQTT_BROKER_URL);
+
+        client.on('connect', () => {
+            const message = JSON.stringify({
+                action: 'sync_geo'
+            });
+            client.publish(MQTT_TOPIC, message, { qos: 1 }, (err) => {
+                if (err) {
+                    console.error('MQTT publish error:', err);
+                } else {
+                    console.log('MQTT message published to', MQTT_TOPIC);
+                }
+                client.end();
+            });
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT connection error:', err);
+            client.end();
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await lokasiService.create(form);
+            const response = await lokasiService.create(form);
             showToast("Data lokasi berhasil disimpan", "success");
+
+            // Publish to MQTT after successful save
+            publishMqttMessage(response.data.data || form);
+
             setForm({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menyimpan data lokasi", "error");

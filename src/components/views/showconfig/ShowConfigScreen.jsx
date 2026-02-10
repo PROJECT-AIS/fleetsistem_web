@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Plus, Search, ChevronLeft, ChevronRight, X, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Plus, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, kalibrasiService, pengawasService } from "../../../services/configService";
+import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
+import mqtt from 'mqtt';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA6myHzS10YXdcazAFalmXvDkrYCp5cLc8';
+const MQTT_BROKER_URL = 'wss://mqtt.aistrack.site:443';
+const MQTT_TOPIC = 'fms/web';
 
 // Tab configuration
 const TABS = [
@@ -11,6 +17,56 @@ const TABS = [
     { id: "kalibrasi", label: "Data Kalibrasi", icon: Fuel },
     { id: "users", label: "Data Users", icon: Users },
 ];
+
+// Toast notification
+const Toast = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <div className={`fixed top-4 right-4 z-[60] px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${type === "success" ? "bg-green-500" : "bg-red-500"} text-white`}>
+            {type === "success" ? <Save className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {message}
+        </div>
+    );
+};
+
+// Reusable form input component
+const FormInput = ({ label, name, value, onChange, type = "text", placeholder = "", required = false, disabled = false }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+        <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            disabled={disabled}
+            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
+        />
+    </div>
+);
+
+// Reusable select component
+const FormSelect = ({ label, name, value, onChange, options, required = false, disabled = false }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+        <select
+            name={name}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
+        >
+            <option value="">Pilih {label}</option>
+            {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+        </select>
+    </div>
+);
 
 // Delete Confirmation Modal
 const DeleteModal = ({ isOpen, onClose, onConfirm, itemName }) => {
@@ -28,6 +84,474 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, itemName }) => {
                         Hapus
                     </button>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+// ===================== EDIT MODALS =====================
+
+// Edit Alat Modal
+const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ idFms: "", noPlat: "", jenisAlat: "", detailAlat: "", status: "Aktif", gambar: null });
+    const [loading, setLoading] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                idFms: item.idFms || "",
+                noPlat: item.noPlat || "",
+                jenisAlat: item.jenisAlat || "",
+                detailAlat: item.detailAlat || "",
+                status: item.status || "Aktif",
+                gambar: null
+            });
+            setPreviewImage(item.gambar ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${item.gambar}` : null);
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setForm({ ...form, gambar: file });
+            setPreviewImage(URL.createObjectURL(file));
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await alatService.update(item.id, form);
+            onSave("Data alat berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update data alat", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Data Alat</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput label="ID Alat FMS" name="idFms" value={form.idFms} onChange={handleChange} disabled required />
+                        <FormInput label="Nomor Plat" name="noPlat" value={form.noPlat} onChange={handleChange} required />
+                        <FormSelect label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange}
+                            options={[
+                                { value: "Excavator", label: "Excavator" },
+                                { value: "Dump Truck", label: "Dump Truck" },
+                                { value: "Bulldozer", label: "Bulldozer" },
+                                { value: "Loader", label: "Loader" },
+                                { value: "Grader", label: "Grader" },
+                            ]} required />
+                        <FormSelect label="Status" name="status" value={form.status} onChange={handleChange}
+                            options={[
+                                { value: "Aktif", label: "Aktif" },
+                                { value: "Maintenance", label: "Maintenance" },
+                                { value: "Non-Aktif", label: "Non-Aktif" },
+                            ]} required />
+                    </div>
+                    <div>
+                        <label className="text-sm text-gray-400 block mb-1.5">Detail Alat</label>
+                        <textarea name="detailAlat" value={form.detailAlat} onChange={handleChange} placeholder="Deskripsi detail..." rows={3}
+                            className="w-full bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none resize-none" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 px-4 py-2.5 bg-[#4a4b4d] text-white rounded-lg cursor-pointer hover:bg-[#5a5b5d] transition-colors">
+                            <Upload className="w-4 h-4" />
+                            Ganti Gambar
+                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        </label>
+                        {previewImage && <img src={previewImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-[#4a4b4d]" />}
+                    </div>
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Edit Operator Modal
+const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                nama: item.nama || "",
+                noTelp: item.noTelp || "",
+                divisi: item.divisi || "",
+                idCardNfc: item.idCardNfc || "",
+                jabatan: item.jabatan || "",
+                alamat: item.alamat || ""
+            });
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await operatorService.update(item.id, form);
+            onSave("Data operator berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update data operator", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Data Operator</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} required />
+                        <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} required />
+                        <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
+                            options={[
+                                { value: "Operasional", label: "Operasional" },
+                                { value: "Logistik", label: "Logistik" },
+                                { value: "Maintenance", label: "Maintenance" },
+                                { value: "HSE", label: "HSE" },
+                            ]} required />
+                        <FormInput label="ID Card NFC" name="idCardNfc" value={form.idCardNfc} onChange={handleChange} />
+                        <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
+                            options={[
+                                { value: "Driver", label: "Driver" },
+                                { value: "Operator", label: "Operator" },
+                                { value: "Supervisor", label: "Supervisor" },
+                                { value: "Mekanik", label: "Mekanik" },
+                            ]} required />
+                        <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} />
+                    </div>
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Edit Lokasi Modal with Google Maps
+const EditLokasiModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
+    const [loading, setLoading] = useState(false);
+    const mapRef = useRef(null);
+
+    const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY
+    });
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                name: item.name || "",
+                latitude: item.latitude || "",
+                longitude: item.longitude || "",
+                radius: item.radius?.toString() || "",
+                type: item.type || "circle"
+            });
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const publishMqttMessage = () => {
+        const client = mqtt.connect(MQTT_BROKER_URL);
+        client.on('connect', () => {
+            const message = JSON.stringify({ action: 'sync_geo_edit' });
+            client.publish(MQTT_TOPIC, message, { qos: 1 }, () => client.end());
+        });
+        client.on('error', () => client.end());
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await lokasiService.update(item.id, form);
+            publishMqttMessage();
+            onSave("Data lokasi berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update data lokasi", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    const lat = parseFloat(form.latitude);
+    const lng = parseFloat(form.longitude);
+    const radius = parseFloat(form.radius) || 100;
+    const hasValidCoords = !isNaN(lat) && !isNaN(lng);
+
+    const mapOptions = {
+        mapTypeId: 'hybrid',
+        disableDefaultUI: false,
+        zoomControl: true,
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false,
+    };
+
+    const circleOptions = {
+        strokeColor: '#74CD25',
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: '#74CD25',
+        fillOpacity: 0.25,
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Data Lokasi</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <FormInput label="Nama Lokasi" name="name" value={form.name} onChange={handleChange} required />
+                        </div>
+                        <FormInput label="Latitude" name="latitude" value={form.latitude} onChange={handleChange} required />
+                        <FormInput label="Longitude" name="longitude" value={form.longitude} onChange={handleChange} required />
+                        <FormInput label="Radius (meter)" name="radius" value={form.radius} onChange={handleChange} type="number" required />
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-sm text-gray-400">Type</label>
+                            <div className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] flex items-center gap-2">
+                                <span className="text-[#74CD25] font-medium">● Circle</span>
+                                <span className="text-gray-500 text-xs">(Auto)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Map Preview */}
+                    <div className="bg-[#2d2e32] rounded-lg overflow-hidden border border-[#4a4b4d]" style={{ height: '250px' }}>
+                        {isLoaded && hasValidCoords ? (
+                            <GoogleMap
+                                mapContainerStyle={{ width: '100%', height: '100%' }}
+                                center={{ lat, lng }}
+                                zoom={15}
+                                options={mapOptions}
+                                onLoad={(map) => { mapRef.current = map; }}
+                            >
+                                <Marker position={{ lat, lng }} />
+                                <Circle center={{ lat, lng }} radius={radius} options={circleOptions} />
+                            </GoogleMap>
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <div className="text-center">
+                                    <MapPin className="w-10 h-10 mx-auto mb-2 text-gray-500 opacity-50" />
+                                    <p className="text-gray-500">Masukkan koordinat untuk preview</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Edit Kalibrasi Modal
+const EditKalibrasiModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ alatId: "", empty: "", full: "", kapasitasTangki: "" });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                alatId: item.alatId?.toString() || "",
+                empty: item.empty?.toString() || "",
+                full: item.full?.toString() || "",
+                kapasitasTangki: item.kapasitasTangki?.toString() || ""
+            });
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await kalibrasiService.update(item.id, form);
+            onSave("Data kalibrasi berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update data kalibrasi", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-lg w-full">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Data Kalibrasi</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="bg-[#2d2e32] px-4 py-3 rounded-lg border border-[#4a4b4d]">
+                        <span className="text-sm text-gray-400">Alat: </span>
+                        <span className="text-white font-medium">{item?.alat?.idFms || `ID: ${item?.alatId}`}</span>
+                    </div>
+                    <FormInput label="Empty (Nilai Kosong)" name="empty" value={form.empty} onChange={handleChange} type="number" required />
+                    <FormInput label="Full (Nilai Penuh)" name="full" value={form.full} onChange={handleChange} type="number" required />
+                    <FormInput label="Kapasitas Tangki (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" required />
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Edit Users Modal
+const EditUsersModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ nama: "", email: "", password: "", noTelp: "", fotoProfil: null });
+    const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                nama: item.nama || "",
+                email: item.email || "",
+                password: "",
+                noTelp: item.noTelp || "",
+                fotoProfil: null
+            });
+            setPreviewImage(item.fotoProfil ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${item.fotoProfil}` : null);
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setForm({ ...form, fotoProfil: file });
+            setPreviewImage(URL.createObjectURL(file));
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const submitData = { ...form };
+            if (!submitData.password) delete submitData.password;
+            await pengawasService.update(item.id, submitData);
+            onSave("Data user berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update data user", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Data User</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="flex items-center gap-4 mb-4">
+                        {previewImage ? (
+                            <img src={previewImage} alt="Preview" className="w-20 h-20 object-cover rounded-full border-2 border-[#74CD25]" />
+                        ) : (
+                            <div className="w-20 h-20 bg-[#4a4b4d] rounded-full flex items-center justify-center">
+                                <User className="w-8 h-8 text-gray-400" />
+                            </div>
+                        )}
+                        <label className="flex items-center gap-2 px-4 py-2.5 bg-[#4a4b4d] text-white rounded-lg cursor-pointer hover:bg-[#5a5b5d] transition-colors">
+                            <Upload className="w-4 h-4" />
+                            Ganti Foto
+                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput label="Nama Lengkap" name="nama" value={form.nama} onChange={handleChange} required />
+                        <FormInput label="Email" name="email" value={form.email} onChange={handleChange} type="email" required />
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-sm text-gray-400">Password <span className="text-gray-500 text-xs">(kosongkan jika tidak diubah)</span></label>
+                            <div className="relative">
+                                <input type={showPassword ? "text" : "password"} name="password" value={form.password} onChange={handleChange} placeholder="********"
+                                    className="w-full bg-[#2d2e32] text-white px-4 py-2.5 pr-12 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none" />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+                        <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} required />
+                    </div>
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
@@ -188,8 +712,8 @@ const operatorColumns = [
 ];
 
 const lokasiColumns = [
-    { key: "nama", label: "Nama Lokasi" },
-    { key: "jenisLokasi", label: "Jenis" },
+    { key: "name", label: "Nama Lokasi" },
+    { key: "type", label: "Type" },
     { key: "latitude", label: "Latitude" },
     { key: "longitude", label: "Longitude" },
     { key: "radius", label: "Radius (m)" },
@@ -212,6 +736,14 @@ export default function ShowConfigScreen() {
     const [activeTab, setActiveTab] = useState("alat");
     const [loading, setLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ open: false, item: null, type: "" });
+    const [toast, setToast] = useState(null);
+
+    // Edit modal states
+    const [editAlatModal, setEditAlatModal] = useState({ open: false, item: null });
+    const [editOperatorModal, setEditOperatorModal] = useState({ open: false, item: null });
+    const [editLokasiModal, setEditLokasiModal] = useState({ open: false, item: null });
+    const [editKalibrasiModal, setEditKalibrasiModal] = useState({ open: false, item: null });
+    const [editUsersModal, setEditUsersModal] = useState({ open: false, item: null });
 
     // Data states
     const [alatData, setAlatData] = useState([]);
@@ -258,14 +790,37 @@ export default function ShowConfigScreen() {
         }
     };
 
+    const showToast = (message, type = "success") => setToast({ message, type });
+
+    const handleSaveCallback = (message, type = "success") => {
+        showToast(message, type);
+        if (type === "success") {
+            fetchData(activeTab);
+        }
+    };
+
     const handleEdit = (item) => {
-        console.log("Edit:", item);
-        // TODO: Open edit modal
+        switch (activeTab) {
+            case "alat": setEditAlatModal({ open: true, item }); break;
+            case "operator": setEditOperatorModal({ open: true, item }); break;
+            case "lokasi": setEditLokasiModal({ open: true, item }); break;
+            case "kalibrasi": setEditKalibrasiModal({ open: true, item }); break;
+            case "users": setEditUsersModal({ open: true, item }); break;
+        }
     };
 
     const handleDelete = (item) => {
-        const nameField = item.nama || item.idFms || item.email || `ID: ${item.id}`;
+        const nameField = item.nama || item.name || item.idFms || item.email || `ID: ${item.id}`;
         setDeleteModal({ open: true, item, type: activeTab, name: nameField });
+    };
+
+    const publishMqttDelete = () => {
+        const client = mqtt.connect(MQTT_BROKER_URL);
+        client.on('connect', () => {
+            const message = JSON.stringify({ action: 'sync_geo_hapus' });
+            client.publish(MQTT_TOPIC, message, { qos: 1 }, () => client.end());
+        });
+        client.on('error', () => client.end());
     };
 
     const confirmDelete = async () => {
@@ -274,13 +829,17 @@ export default function ShowConfigScreen() {
             switch (type) {
                 case "alat": await alatService.delete(item.id); break;
                 case "operator": await operatorService.delete(item.id); break;
-                case "lokasi": await lokasiService.delete(item.id); break;
+                case "lokasi":
+                    await lokasiService.delete(item.id);
+                    publishMqttDelete();
+                    break;
                 case "kalibrasi": await kalibrasiService.delete(item.id); break;
                 case "users": await pengawasService.delete(item.id); break;
             }
+            showToast("Data berhasil dihapus");
             fetchData(type);
         } catch (error) {
-            console.error("Error deleting:", error);
+            showToast(error.response?.data?.message || "Gagal menghapus data", "error");
         } finally {
             setDeleteModal({ open: false, item: null, type: "" });
         }
@@ -305,6 +864,8 @@ export default function ShowConfigScreen() {
 
     return (
         <PageLayout className="p-6">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <h1 className="text-2xl font-bold text-white mb-6">Show Config</h1>
 
             {/* Tabs */}
@@ -341,6 +902,38 @@ export default function ShowConfigScreen() {
                 onClose={() => setDeleteModal({ open: false, item: null, type: "" })}
                 onConfirm={confirmDelete}
                 itemName={deleteModal.name}
+            />
+
+            {/* Edit Modals */}
+            <EditAlatModal
+                isOpen={editAlatModal.open}
+                onClose={() => setEditAlatModal({ open: false, item: null })}
+                item={editAlatModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditOperatorModal
+                isOpen={editOperatorModal.open}
+                onClose={() => setEditOperatorModal({ open: false, item: null })}
+                item={editOperatorModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditLokasiModal
+                isOpen={editLokasiModal.open}
+                onClose={() => setEditLokasiModal({ open: false, item: null })}
+                item={editLokasiModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditKalibrasiModal
+                isOpen={editKalibrasiModal.open}
+                onClose={() => setEditKalibrasiModal({ open: false, item: null })}
+                item={editKalibrasiModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditUsersModal
+                isOpen={editUsersModal.open}
+                onClose={() => setEditUsersModal({ open: false, item: null })}
+                item={editUsersModal.item}
+                onSave={handleSaveCallback}
             />
         </PageLayout>
     );
