@@ -6,6 +6,7 @@ import GoogleMap from '../../utils/maps/GoogleMap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { computeBearing } from "../../../utils/mapUtils";
 import { GPS_PATH_DEFAULT, generateVehicleData, DASHBOARD_STATS } from "../../../data/vehicleData";
+import { useMqttContext } from "../../../context/MqttContext";
 
 // Memoized StatCard
 const StatCard = React.memo(({ icon, value, label }) => (
@@ -85,12 +86,12 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
       </div>
       <div className="p-5">
         <div className="text-sm text-gray-400 mb-2">Kamis, 29/05/2025</div>
-        <div className="h-32 flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={100}>
-            <LineChart data={fuelData}>
+        <div className="h-40 flex items-center justify-center">
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={fuelData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-              <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} />
-              <YAxis hide />
+              <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} />
+              <YAxis tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} width={35} unit=" L" />
               <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
               <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
             </LineChart>
@@ -106,12 +107,12 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
       </div>
       <div className="p-5">
         <div className="text-sm text-gray-400 mb-2">Per Minggu</div>
-        <div className="h-32 flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={100}>
-            <LineChart data={weeklyFuel}>
+        <div className="h-40 flex items-center justify-center">
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart data={weeklyFuel} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-              <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} />
-              <YAxis hide />
+              <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} />
+              <YAxis tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} width={35} unit=" L" />
               <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
               <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
             </LineChart>
@@ -182,12 +183,12 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
       <div className="flex items-start justify-between">
         <div className="flex-1 pr-4">
           <div className="text-xl font-bold text-[#74CD25] mb-3">{vehicle.name}</div>
-          <div className="text-lg font-bold text-white mb-1">135 KM/H</div>
+          <div className="text-lg font-bold text-white mb-1">{Math.round(vehicle.speed || 0)} KM/H</div>
           <div className="text-xs text-gray-400 mb-3">Speed</div>
-          <div className="text-lg font-bold text-white mb-1">486 KM</div>
-          <div className="text-xs text-gray-400 mb-3">Jarak</div>
-          <div className="text-lg font-bold text-white mb-1">20 L</div>
-          <div className="text-xs text-gray-400">Kapasitas</div>
+          <div className="text-lg font-bold text-white mb-1">{vehicle.fuelLevel || 0}%</div>
+          <div className="text-xs text-gray-400 mb-3">Fuel Level</div>
+          <div className="text-lg font-bold text-white mb-1">{vehicle.fuel && vehicle.fuel.volume_l ? vehicle.fuel.volume_l.toFixed(1) : 0} L</div>
+          <div className="text-xs text-gray-400">Fuel Volume</div>
         </div>
         <div className="relative">
           <img
@@ -277,11 +278,44 @@ const HomeScreen = () => {
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
 
-  // Memoized vehicle data
-  const vehicleData = useMemo(() =>
-    generateVehicleData(lastGps, computedHeading, gpsPath),
-    [lastGps, computedHeading, gpsPath]
-  );
+  const { vehicles: liveVehicles, mqttStatus } = useMqttContext();
+
+  // Memoized vehicle data - merged with live data
+  const vehicleData = useMemo(() => {
+    const dummy = generateVehicleData(lastGps, computedHeading, gpsPath);
+    const result = [...dummy];
+
+    liveVehicles.forEach(live => {
+      // Find matching vehicle in result
+      const index = result.findIndex(d =>
+        String(d.id).toLowerCase() === String(live.id).toLowerCase() ||
+        String(d.plateNumber).toLowerCase() === String(live.plateNumber).toLowerCase()
+      );
+
+      if (index !== -1) {
+        // Merge live data on top of dummy
+        result[index] = { ...result[index], ...live };
+      } else {
+        // Add as new vehicle if not found in dummy
+        result.push({
+          ...live,
+          image: live.image || dummy[0].image
+        });
+      }
+    });
+
+    return result;
+  }, [liveVehicles, lastGps, computedHeading, gpsPath]);
+
+  // Derived stats from merged data
+  const stats = useMemo(() => {
+    return {
+      total: vehicleData.length,
+      online: vehicleData.filter(v => v.status === 'online').length,
+      offline: vehicleData.filter(v => v.status === 'offline').length,
+      lossCoordinate: vehicleData.filter(v => !v.lat || !v.lng || (v.lat === 0 && v.lng === 0)).length,
+    };
+  }, [vehicleData]);
 
   const tripHistory = useMemo(() => gpsPath.map((point, idx) => ({
     id: idx + 1,
@@ -349,16 +383,16 @@ const HomeScreen = () => {
           {/* Stats */}
           <div className="flex gap-4 mb-6">
             <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={DASHBOARD_STATS.total} label="Total" />
+              <StatCard icon={<CachedIcon />} value={stats.total} label="Total" />
             </div>
             <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={DASHBOARD_STATS.online} label="ON" />
+              <StatCard icon={<CachedIcon />} value={stats.online} label="ON" />
             </div>
             <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={DASHBOARD_STATS.offline} label="OFF" />
+              <StatCard icon={<CachedIcon />} value={stats.offline} label="OFF" />
             </div>
             <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={DASHBOARD_STATS.lossCoordinate} label="Loss Coordinate" />
+              <StatCard icon={<CachedIcon />} value={stats.lossCoordinate} label="Loss Coordinate" />
             </div>
           </div>
 

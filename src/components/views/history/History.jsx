@@ -3,6 +3,7 @@ import { Download, Search, ChevronLeft, ChevronRight, Calendar, Filter } from "l
 import * as XLSX from "xlsx";
 import PageLayout from "../../layout/PageLayout";
 import { isDateInRange, isDateInCustomRange } from "../../../utils/dateUtils";
+import { useMqttContext } from "../../../context/MqttContext";
 
 // Dummy data for development with new column structure
 const DUMMY_DATA = Array.from({ length: 50 }, (_, i) => ({
@@ -89,25 +90,80 @@ export default function History() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const { rawVehicles } = useMqttContext();
+
+  // Transform live vehicle data into history logs
+  const mqttLogs = useMemo(() => {
+    const logs = [];
+    Object.values(rawVehicles).forEach(v => {
+      if (v.history) {
+        v.history.forEach((h, idx) => {
+          logs.push({
+            no: `${v.id}-${idx}`,
+            waktu: h.time,
+            idAlat: v.device_id || v.id,
+            unitKendaraan: v.vehicle_id,
+            kecepatanKendaraan: v.gps?.speed_kph || 0,
+            jenisMuatan: "-",
+            statusMuatan: "-",
+            statusUnit: {
+              start: "-",
+              rentangWaktuAktif: "-",
+              totalDurasiAktif: "-",
+              rentangWaktuPasif: "-",
+              totalWaktuPasif: "-",
+              mati: v.vehicle?.engine_on ? "Tidak" : "Ya",
+            },
+            operator: {
+              nama: "MQTT User",
+              id: "-",
+              jabatan: "-",
+              divisi: "-",
+            },
+            gps: {
+              latitude: h.lat,
+              longitude: h.lng,
+              trip: "-",
+            },
+            sensorFuel: {
+              volumeBahanBakar: v.fuel?.volume_l || 0,
+              konsumsi: v.fuel?.consumption_l || 0,
+              anomaliStatus: "Normal",
+              bahanBakarMasuk: 0,
+            },
+            lokasi: {
+              awal: "-",
+              akhir: "-",
+            },
+            retase: {
+              setUlangRetase: "Tidak",
+            },
+          });
+        });
+      }
+    });
+    return logs.reverse(); // Newest first
+  }, [rawVehicles]);
+
+  const historyData = useMemo(() => {
+    if (mqttLogs.length > 0) return mqttLogs;
+    return DUMMY_DATA;
+  }, [mqttLogs]);
+
   // Filtered data based on active filters and search
   const filteredData = useMemo(() => {
-    return DUMMY_DATA.filter(row => {
+    return historyData.filter(row => {
       const matchesFilter = isDateInRange(row.waktu, activeFilter);
       const matchesDateRange = isDateInCustomRange(row.waktu, startDate, endDate);
       const searchTerm = search.toLowerCase();
       const matchesSearch = !searchTerm ||
         row.idAlat.toLowerCase().includes(searchTerm) ||
         row.unitKendaraan.toLowerCase().includes(searchTerm) ||
-        row.operator.nama.toLowerCase().includes(searchTerm) ||
-        row.operator.id.toLowerCase().includes(searchTerm) ||
-        row.jenisMuatan.toLowerCase().includes(searchTerm) ||
-        row.lokasi.awal.toLowerCase().includes(searchTerm) ||
-        row.lokasi.akhir.toLowerCase().includes(searchTerm) ||
         row.waktu.toLowerCase().includes(searchTerm);
 
       return matchesFilter && matchesDateRange && matchesSearch;
     });
-  }, [activeFilter, startDate, endDate, search]);
+  }, [activeFilter, startDate, endDate, search, historyData]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);

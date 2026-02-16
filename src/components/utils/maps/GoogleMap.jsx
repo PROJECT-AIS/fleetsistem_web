@@ -1,5 +1,5 @@
 // components/GoogleMap.jsx
-import React, { useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useCallback, useRef, useMemo, useEffect, useState } from 'react';
 import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA6myHzS10YXdcazAFalmXvDkrYCp5cLc8';
@@ -85,12 +85,21 @@ const GoogleMap = ({
         googleMapsApiKey: GOOGLE_MAPS_API_KEY
     });
 
+    const [zoom, setZoom] = useState(13);
+
     const onLoad = useCallback((map) => {
         mapRef.current = map;
+        setZoom(map.getZoom());
     }, []);
 
     const onUnmount = useCallback(() => {
         mapRef.current = null;
+    }, []);
+
+    const handleZoomChanged = useCallback(() => {
+        if (mapRef.current) {
+            setZoom(mapRef.current.getZoom());
+        }
     }, []);
 
     // Center map on selected vehicle with smooth animation
@@ -108,25 +117,83 @@ const GoogleMap = ({
             const currentZoom = mapRef.current.getZoom();
             if (currentZoom < 15) {
                 mapRef.current.setZoom(15);
+                setZoom(15);
             }
         }
     }, [selectedVehicle]);
 
+    // Cache for rotated icons
+    const iconCache = useRef({});
+    const baseIconsRef = useRef({});
+    const [iconsLoadedCount, setIconsLoadedCount] = useState(0);
+
+    // Pre-load base icons
+    useEffect(() => {
+        const assets = ['/assets/dp.png', '/assets/selected-vehicle.png'];
+        assets.forEach(url => {
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                baseIconsRef.current[url] = img;
+                setIconsLoadedCount(prev => prev + 1);
+            };
+        });
+    }, []);
+
+    // Helper to rotate the icon using canvas
+    const getRotatedIcon = useCallback((url, heading = 0) => {
+        const normalizedHeading = Math.round(heading || 0);
+        // Offset: dp.png faces West/Left. Rotate +90 for North.
+        const rotationAngle = (normalizedHeading + 90) % 360;
+
+        const cacheKey = `${url}-${normalizedHeading}`;
+        if (iconCache.current[cacheKey]) return iconCache.current[cacheKey];
+
+        const baseImg = baseIconsRef.current[url];
+        if (baseImg) {
+            const size = url.includes('selected') ? { width: 50, height: 50 } : { width: 39, height: 20 };
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const maxDim = 75; // Increased to prevent clipping during rotation
+            canvas.width = maxDim;
+            canvas.height = maxDim;
+
+            ctx.translate(maxDim / 2, maxDim / 2);
+            ctx.rotate((rotationAngle * Math.PI) / 180);
+            ctx.drawImage(baseImg, -size.width / 2, -size.height / 2, size.width, size.height);
+
+            const dataUrl = canvas.toDataURL();
+            iconCache.current[cacheKey] = dataUrl;
+            return dataUrl;
+        }
+
+        return url;
+    }, [iconsLoadedCount]); // Re-create when icons load
+
     // Create marker icon
-    const createMarkerIcon = useCallback((isSelected, heading = 0) => {
+    const createMarkerIcon = useCallback((isSelected, heading = 0, vehicleId) => {
         if (!window.google) return null;
 
+        const iconUrl = isSelected ? '/assets/selected-vehicle.png' : '/assets/dp.png';
+        const finalUrl = getRotatedIcon(iconUrl, heading);
+
+        // Calculate zoom scale (Base zoom 15 = 1.0 scale)
+        // Zoom levels usually range from 11-18. We'll make it scale reasonably.
+        const baseZoom = 15;
+        const zoomScale = Math.max(0.4, Math.min(2.0, Math.pow(1.15, zoom - baseZoom)));
+
+        // Restore original visual sizes scaled by zoom
+        const baseSize = isSelected ? { w: 80, h: 80 } : { w: 69, h: 69 };
+        const scaledW = baseSize.w * zoomScale;
+        const scaledH = baseSize.h * zoomScale;
+
         return {
-            url: isSelected ? '/assets/selected-vehicle.png' : '/assets/dp.png',
-            scaledSize: isSelected
-                ? new window.google.maps.Size(50, 50)
-                : new window.google.maps.Size(39, 20),
-            anchor: isSelected
-                ? new window.google.maps.Point(25, 25)
-                : new window.google.maps.Point(19.5, 10),
-            rotation: heading
+            url: finalUrl,
+            scaledSize: new window.google.maps.Size(scaledW, scaledH),
+            anchor: new window.google.maps.Point(scaledW / 2, scaledH / 2),
         };
-    }, []);
+    }, [getRotatedIcon, zoom]);
 
     // Handle marker click
     const handleMarkerClick = useCallback((vehicle) => {
@@ -192,6 +259,7 @@ const GoogleMap = ({
             options={mapOptions}
             onLoad={onLoad}
             onUnmount={onUnmount}
+            onZoomChanged={handleZoomChanged}
         >
             {/* Vehicle Markers */}
             {vehicles.map((vehicle) => {
@@ -200,7 +268,7 @@ const GoogleMap = ({
                     <Marker
                         key={vehicle.id}
                         position={{ lat: vehicle.lat, lng: vehicle.lng }}
-                        icon={createMarkerIcon(isSelected, vehicle.heading)}
+                        icon={createMarkerIcon(isSelected, vehicle.heading, vehicle.id)}
                         onClick={() => handleMarkerClick(vehicle)}
                         onMouseOver={(e) => handleMarkerMouseOver(vehicle, e)}
                         onMouseOut={handleMarkerMouseOut}

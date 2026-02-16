@@ -50,6 +50,7 @@ const FormInput = ({ label, name, value, onChange, type = "text", placeholder = 
             onChange={onChange}
             placeholder={placeholder}
             disabled={disabled}
+            required={required}
             className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
         />
     </div>
@@ -299,6 +300,28 @@ const InputDataLokasi = ({ showToast }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validate all required fields
+        if (!form.name.trim() || !form.latitude.trim() || !form.longitude.trim() || !form.radius.toString().trim()) {
+            showToast("Semua field lokasi harus diisi", "error");
+            return;
+        }
+
+        // Validate latitude and longitude are valid numbers
+        const latVal = parseFloat(form.latitude);
+        const lngVal = parseFloat(form.longitude);
+        const radiusVal = parseFloat(form.radius);
+
+        if (isNaN(latVal) || isNaN(lngVal)) {
+            showToast("Latitude dan Longitude harus berupa angka yang valid", "error");
+            return;
+        }
+
+        if (isNaN(radiusVal) || radiusVal <= 0) {
+            showToast("Radius harus berupa angka lebih dari 0", "error");
+            return;
+        }
+
         setLoading(true);
         try {
             const response = await lokasiService.create(form);
