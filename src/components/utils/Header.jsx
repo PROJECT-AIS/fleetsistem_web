@@ -93,11 +93,18 @@ export default function Header() {
   const displayEmail = user?.email || "";
 
   return (
-    <div className="flex items-center justify-between px-8 py-4 bg-[#2d2e32] border-b border-[#343538] relative">
+    <div className="flex items-center justify-between px-6 py-3 bg-[#2d2e32] border-b border-[#343538] relative">
+      {/* Left: Logo */}
       <div className="flex items-center gap-4">
-        <img src="/logo_ais.png" alt="Logo AIS" className="w-14 h-14 object-contain" />
+        <img src="/logo_ais.png" alt="Logo AIS" className="w-12 h-12 object-contain" />
       </div>
 
+      {/* Center: Title */}
+      <h1 className="text-xl font-bold text-white tracking-wide absolute left-1/2 -translate-x-1/2">
+        PT ANUGRAH INTI SPEKTRA
+      </h1>
+
+      {/* Right: User Profile */}
       <div className="flex items-center gap-3 relative">
         {user ? (
           <>
@@ -107,7 +114,7 @@ export default function Header() {
               onClick={toggleDropdown}
             />
             <div>
-              <div className="text-base font-semibold text-white leading-tight">{displayName}</div>
+              <div className="text-sm font-semibold text-white leading-tight">{displayName}</div>
               <div className="text-xs text-gray-400 leading-tight">{displayEmail}</div>
             </div>
             <button

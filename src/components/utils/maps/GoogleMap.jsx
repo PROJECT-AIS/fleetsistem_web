@@ -184,7 +184,7 @@ const GoogleMap = ({
         const zoomScale = Math.max(0.4, Math.min(2.0, Math.pow(1.15, zoom - baseZoom)));
 
         // Restore original visual sizes scaled by zoom
-        const baseSize = isSelected ? { w: 80, h: 80 } : { w: 69, h: 69 };
+        const baseSize = isSelected ? { w: 80, h: 80  } : { w: 69, h: 69 };
         const scaledW = baseSize.w * zoomScale;
         const scaledH = baseSize.h * zoomScale;
 

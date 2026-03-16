@@ -1,35 +1,129 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import IconBang from "/assets/Iconimage.png";
+import { X, ChevronLeft, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, MapPin, Construction, Power, Pause, Truck, Gauge } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import GoogleMap from '../../utils/maps/GoogleMap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { computeBearing } from "../../../utils/mapUtils";
-import { GPS_PATH_DEFAULT, generateVehicleData, DASHBOARD_STATS } from "../../../data/vehicleData";
+import {
+  GPS_PATH_DEFAULT,
+  generateVehicleData,
+  STATUS_DEVICE,
+  STATUS_ALAT,
+  TOTAL_PRODUKSI,
+  KONSUMSI_BBM
+} from "../../../data/vehicleData";
 import { useMqttContext } from "../../../context/MqttContext";
 
-// Memoized StatCard
-const StatCard = React.memo(({ icon, value, label }) => (
-  <div
-    className="p-4 rounded-lg flex items-center space-x-3"
-    style={{ backgroundColor: "#343538" }}
-  >
-    <div className="p-2 rounded">
-      {icon}
+// Use the icon from assets
+const ICON_IMAGE = "/assets/Iconimage.png";
+
+/* ============================================
+   STATUS CARD (refined to match screenshot)
+   ============================================ */
+const StatusCard = React.memo(({ iconType, value, label, colorClass }) => (
+  <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-white/20 bg-transparent transition-all duration-200 hover:bg-white/5 h-full">
+    <div className="flex-shrink-0">
+      <img src={ICON_IMAGE} alt="icon" className={`w-10 h-8 object-contain ${colorClass}`} style={{ filter: colorClass === 'text-white' ? 'brightness(0) invert(1)' : colorClass === 'text-[#00FF00]' ? 'sepia(1) saturate(100) hue-rotate(90deg)' : colorClass === 'text-[#FFD700]' ? 'sepia(1) saturate(100) hue-rotate(20deg)' : 'sepia(1) saturate(100) hue-rotate(-30deg)' }} />
     </div>
-    <div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-gray-400 text-sm">{label}</div>
+    <div className="flex flex-col justify-center">
+      <span className={`text-2xl font-extrabold leading-none ${colorClass}`}>{value}</span>
+      <span className={`text-[20px] font-bold tracking-tight uppercase ${colorClass === 'text-white' ? 'text-white/70' : colorClass}`}>{label}</span>
     </div>
   </div>
 ));
 
-// Cached icon component to prevent re-renders
-const CachedIcon = React.memo(() => (
-  <img src={IconBang} alt="Bang" className="w-10 h-10" />
+/* ============================================
+   STATUS DEVICE PANEL
+   ============================================ */
+const StatusDevicePanel = React.memo(({ stats }) => (
+  <div className="flex-1 bg-[#232426] rounded-3xl p-4 shadow-2xl flex flex-col">
+    <div className="flex justify-center -mt-8 mb-4">
+      <span className="bg-[#00FF00] text-[#1E1F21] text-lg font-black px-8 py-1.5 rounded-2xl shadow-[0_0_15px_rgba(0,255,0,0.3)]">
+        Status Device
+      </span>
+    </div>
+    <div className="grid grid-cols-2 gap-3 flex-1">
+      <StatusCard value={stats.total} label="Total" colorClass="text-white" />
+      <StatusCard value={stats.on} label="ON" colorClass="text-[#00FF00]" />
+      <StatusCard value={stats.lossCoordinate} label="Loss Coordinate" colorClass="text-[#FFD700]" />
+      <StatusCard value={stats.off} label="OFF" colorClass="text-[#FF0000]" />
+    </div>
+  </div>
 ));
 
-// Memoized VehicleTooltip
+/* ============================================
+   STATUS ALAT PANEL
+   ============================================ */
+const StatusAlatPanel = React.memo(({ stats }) => (
+  <div className="flex-1 bg-[#232426] rounded-3xl p-4 shadow-2xl flex flex-col">
+    <div className="flex justify-center -mt-8 mb-4">
+      <span className="bg-[#00FF00] text-[#1E1F21] text-lg font-black px-8 py-1.5 rounded-2xl shadow-[0_0_15px_rgba(0,255,0,0.3)]">
+        Status Alat
+      </span>
+    </div>
+    <div className="grid grid-cols-2 gap-3 flex-1">
+      <StatusCard value={stats.total} label="Total" colorClass="text-white" />
+      <StatusCard value={stats.on} label="ON" colorClass="text-[#00FF00]" />
+      <StatusCard value={stats.passive} label="Passive" colorClass="text-[#FFD700]" />
+      <StatusCard value={stats.off} label="OFF" colorClass="text-[#FF0000]" />
+    </div>
+  </div>
+));
+
+/* ============================================
+   TOTAL PRODUKSI + KONSUMSI BBM PANEL
+   ============================================ */
+const ProduksiPanel = React.memo(({ produksiItems, konsumsi }) => (
+  <div className="flex gap-4 flex-1 bg-[#E5E7EB] rounded-3xl p-4 text-[#1E1F21] relative overflow-hidden shadow-2xl">
+    {/* Top Right Icons */}
+    {/* <div className="absolute top-2 right-4 flex items-center gap-3">
+       <Truck className="w-7 h-7 text-[#00FF00] fill-current" />
+       <Gauge className="w-7 h-7 text-[#00FF00]" />
+    </div> */}
+
+    <div className="flex-1 flex flex-col gap-3">
+      <div className="flex justify-start">
+        <span className="bg-[#1E1F21] text-white text-base font-black px-6 py-1.5 rounded-xl">
+          Total produksi
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {produksiItems.map((item, idx) => {
+          let valueColor = "bg-[#00FF00]";
+          if (item.label.includes("OB")) valueColor = "bg-[#FFBC00]";
+          if (item.label.includes("LIM ORE")) valueColor = "bg-[#D92D20]";
+          
+          return (
+            <div key={idx} className="flex items-center">
+              <div className="bg-[#1E1F21] text-white text-[11px] font-bold px-4 py-1.5 rounded-l-full flex-1">
+                {item.label}
+              </div>
+              <div className={`${valueColor} text-white text-base font-black px-4 py-1 rounded-r-full min-w-[80px] text-center shadow-inner`}>
+                {item.value.toLocaleString()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="flex flex-col items-center justify-center gap-3 min-w-[130px] pl-3 border-l border-gray-300">
+      <div className="flex flex-col items-center">
+        <span className="text-sm font-black uppercase text-center leading-tight">Konsumsi<br/>BBM</span>
+        <div className="bg-[#00FF00] text-[#1E1F21] text-xl font-black px-3 py-2 rounded-xl mt-2 shadow-lg w-full text-center">
+          {konsumsi.toLocaleString()} L
+        </div>
+      </div>
+      <div className="mt-1 text-center">
+        <span className="text-[11px] font-black uppercase tracking-tight leading-tight">Real-time<br/>harian</span>
+      </div>
+    </div>
+  </div>
+));
+
+/* ============================================
+   VEHICLE TOOLTIP (on hover)
+   ============================================ */
 const VehicleTooltip = React.memo(({ vehicle, position }) => {
   const cardWidth = 220;
   const cardHeight = 100;
@@ -63,8 +157,9 @@ const VehicleTooltip = React.memo(({ vehicle, position }) => {
   );
 });
 
-// Memoized Vehicle Charts
-// Custom tooltip component for charts
+/* ============================================
+   CUSTOM CHART TOOLTIP
+   ============================================ */
 const CustomChartTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -77,9 +172,11 @@ const CustomChartTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+/* ============================================
+   VEHICLE CHARTS (below map when selected)
+   ============================================ */
 const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
   <div className="grid grid-cols-2 gap-4 mt-4">
-    {/* Volume Bahan Bakar Realtime */}
     <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
       <div className="bg-[#5A5B5D] px-5 py-3">
         <h3 className="text-lg font-bold text-white">Volume Bahan Bakar Realtime</h3>
@@ -99,8 +196,6 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
         </div>
       </div>
     </div>
-
-    {/* Konsumsi Bahan Bakar */}
     <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
       <div className="bg-[#5A5B5D] px-5 py-3">
         <h3 className="text-lg font-bold text-white">Konsumsi Bahan Bakar</h3>
@@ -123,7 +218,9 @@ const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
   </div>
 ));
 
-// Detail Row Component for expandable section
+/* ============================================
+   DETAIL ROW
+   ============================================ */
 const DetailRow = React.memo(({ label, value, onEdit }) => (
   <div className="flex items-center justify-between py-3 border-b border-[#5A5B5D] last:border-b-0">
     <div>
@@ -131,20 +228,18 @@ const DetailRow = React.memo(({ label, value, onEdit }) => (
       <div className="text-xs text-gray-400">{value}</div>
     </div>
     {onEdit && (
-      <button
-        className="text-sm text-[#74CD25] hover:text-[#8FE040] transition font-medium"
-        onClick={onEdit}
-      >
+      <button className="text-sm text-[#74CD25] hover:text-[#8FE040] transition font-medium" onClick={onEdit}>
         Edit
       </button>
     )}
   </div>
 ));
 
-// Memoized Sidebar Card with expandable detail
+/* ============================================
+   VEHICLE SIDEBAR CARD (right side when selected)
+   ============================================ */
 const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleExpand, onPrev, onNext, canGoPrev, canGoNext }) => (
   <div className="rounded-xl shadow-lg overflow-visible bg-[#4A4B4D] relative">
-    {/* Header with Close Button */}
     <div className="bg-[#5A5B5D] px-5 py-3 flex items-center justify-between rounded-t-xl">
       <h3 className="text-lg font-bold text-white">Cars</h3>
       <button
@@ -156,7 +251,6 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
       </button>
     </div>
     <div className="p-5">
-      {/* Navigation Arrows - Positioned outside the card */}
       <button
         className={`absolute -left-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 z-10 ${canGoPrev
           ? 'bg-gradient-to-r from-[#74CD25] to-[#5fa01c] text-white hover:shadow-[0_0_15px_rgba(116,205,37,0.5)] hover:scale-110 cursor-pointer'
@@ -191,42 +285,20 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
           <div className="text-xs text-gray-400">Fuel Volume</div>
         </div>
         <div className="relative">
-          <img
-            src={vehicle.image}
-            alt={vehicle.name}
-            className="w-28 h-24 object-cover rounded-lg shadow-md"
-            loading="lazy"
-          />
+          <img src={vehicle.image} alt={vehicle.name} className="w-28 h-24 object-cover rounded-lg shadow-md" loading="lazy" />
         </div>
       </div>
 
-      {/* Expanded Detail Section */}
       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
         <div className="border-t border-[#5A5B5D] pt-4">
-          <DetailRow
-            label="Nama Operator"
-            value={vehicle.operatorName || "Pak Gun"}
-          />
-          <DetailRow
-            label="ID Operator"
-            value={vehicle.operatorId || "XXXXXX-1"}
-          />
-          <DetailRow
-            label="Jabatan"
-            value={vehicle.jabatan || "Lorem Ipsum"}
-          />
-          <DetailRow
-            label="Divisi"
-            value={vehicle.divisi || "Lorem Ipsum"}
-          />
-          <DetailRow
-            label="Nomor Plat"
-            value={vehicle.plateNumber || "Lorem Ipsum"}
-          />
+          <DetailRow label="Nama Operator" value={vehicle.operatorName || "Pak Gun"} />
+          <DetailRow label="ID Operator" value={vehicle.operatorId || "XXXXXX-1"} />
+          <DetailRow label="Jabatan" value={vehicle.jabatan || "Lorem Ipsum"} />
+          <DetailRow label="Divisi" value={vehicle.divisi || "Lorem Ipsum"} />
+          <DetailRow label="Nomor Plat" value={vehicle.plateNumber || "Lorem Ipsum"} />
         </div>
       </div>
 
-      {/* Toggle Button */}
       <div className="flex justify-center mt-4">
         <button
           className="w-10 h-10 rounded-full bg-[#343538] text-[#74CD25] hover:bg-[#5A5B5D] transition flex items-center justify-center shadow"
@@ -240,30 +312,41 @@ const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleE
   </div>
 ));
 
-// Memoized Trip History Card
-const TripHistoryCard = React.memo(({ tripHistory }) => (
-  <div className="rounded-xl shadow-lg overflow-hidden bg-[#4A4B4D]">
-    <div className="bg-[#5A5B5D] px-5 py-3">
-      <h3 className="text-lg font-bold text-white">Last Trip</h3>
-    </div>
-    <div className="p-5">
-      <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-        {tripHistory.map((trip, idx) => (
-          <div key={trip.id + idx} className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#74CD25] flex-shrink-0"></div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-white">{trip.location}</div>
-              <div className="text-xs text-gray-400">{trip.time}</div>
+/* ============================================
+   TRIP HISTORY CARD
+   ============================================ */
+const TripHistoryCard = React.memo(({ tripHistory, isDetailExpanded }) => {
+  // Show 8 items when collapsed, only last 1 when expanded
+  const visibleTrips = isDetailExpanded
+    ? tripHistory.slice(-1)
+    : tripHistory.slice(-8);
+
+  return (
+    <div className="rounded-xl shadow-lg overflow-hidden bg-[#4A4B4D]">
+      <div className="bg-[#5A5B5D] px-5 py-3">
+        <h3 className="text-lg font-bold text-white">Last Trip</h3>
+      </div>
+      <div className="p-5">
+        <div className="space-y-3 overflow-y-auto pr-1">
+          {visibleTrips.map((trip, idx) => (
+            <div key={trip.id + idx} className="flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#74CD25] flex-shrink-0"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-white">{trip.location}</div>
+                <div className="text-xs text-gray-400">{trip.time}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-));
+  );
+});
 
+/* ============================================
+   MAIN HOME SCREEN
+   ============================================ */
 const HomeScreen = () => {
-  // GPS path data - memoized
   const gpsPath = useMemo(() => GPS_PATH_DEFAULT, []);
 
   const lastGps = gpsPath[gpsPath.length - 1];
@@ -278,44 +361,27 @@ const HomeScreen = () => {
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
 
-  const { vehicles: liveVehicles, mqttStatus } = useMqttContext();
+  const { vehicles: liveVehicles } = useMqttContext();
 
-  // Memoized vehicle data - merged with live data
   const vehicleData = useMemo(() => {
     const dummy = generateVehicleData(lastGps, computedHeading, gpsPath);
     const result = [...dummy];
 
     liveVehicles.forEach(live => {
-      // Find matching vehicle in result
       const index = result.findIndex(d =>
         String(d.id).toLowerCase() === String(live.id).toLowerCase() ||
         String(d.plateNumber).toLowerCase() === String(live.plateNumber).toLowerCase()
       );
 
       if (index !== -1) {
-        // Merge live data on top of dummy
         result[index] = { ...result[index], ...live };
       } else {
-        // Add as new vehicle if not found in dummy
-        result.push({
-          ...live,
-          image: live.image || dummy[0].image
-        });
+        result.push({ ...live, image: live.image || dummy[0].image });
       }
     });
 
     return result;
   }, [liveVehicles, lastGps, computedHeading, gpsPath]);
-
-  // Derived stats from merged data
-  const stats = useMemo(() => {
-    return {
-      total: vehicleData.length,
-      online: vehicleData.filter(v => v.status === 'online').length,
-      offline: vehicleData.filter(v => v.status === 'offline').length,
-      lossCoordinate: vehicleData.filter(v => !v.lat || !v.lng || (v.lat === 0 && v.lng === 0)).length,
-    };
-  }, [vehicleData]);
 
   const tripHistory = useMemo(() => gpsPath.map((point, idx) => ({
     id: idx + 1,
@@ -324,13 +390,10 @@ const HomeScreen = () => {
     status: "completed",
   })), [gpsPath]);
 
-  // Stable callback handlers using useCallback
   const handleVehicleClick = useCallback((vehicle) => {
     setSelectedVehicle(prev => {
-      if (prev && prev.id === vehicle.id) {
-        return null;
-      }
-      setIsDetailExpanded(false); // Reset expanded state when switching vehicles
+      if (prev && prev.id === vehicle.id) return null;
+      setIsDetailExpanded(false);
       return vehicle;
     });
   }, []);
@@ -346,14 +409,13 @@ const HomeScreen = () => {
 
   const handleCloseVehicle = useCallback(() => {
     setSelectedVehicle(null);
-    setIsDetailExpanded(false); // Reset expanded state when closing
+    setIsDetailExpanded(false);
   }, []);
 
   const handleToggleExpand = useCallback(() => {
     setIsDetailExpanded(prev => !prev);
   }, []);
 
-  // Navigation handlers for cycling through vehicles
   const currentVehicleIndex = useMemo(() => {
     if (!selectedVehicle) return -1;
     return vehicleData.findIndex(v => v.id === selectedVehicle.id);
@@ -378,30 +440,22 @@ const HomeScreen = () => {
 
   return (
     <PageLayout className="p-6">
-      <div className="flex gap-6">
-        <div className="flex-1">
-          {/* Stats */}
-          <div className="flex gap-4 mb-6">
-            <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={stats.total} label="Total" />
-            </div>
-            <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={stats.online} label="ON" />
-            </div>
-            <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={stats.offline} label="OFF" />
-            </div>
-            <div className="flex-1">
-              <StatCard icon={<CachedIcon />} value={stats.lossCoordinate} label="Loss Coordinate" />
-            </div>
-          </div>
+      {/* ========== NEW: Status Panels Header ========== */}
+      <div className="flex gap-4 mb-6 items-stretch">
+        <StatusDevicePanel stats={STATUS_DEVICE} />
+        <StatusAlatPanel stats={STATUS_ALAT} />
+        <ProduksiPanel produksiItems={TOTAL_PRODUKSI} konsumsi={KONSUMSI_BBM} />
+      </div>
 
+      {/* ========== ORIGINAL: Map + Sidebar Layout ========== */}
+      <div className="flex gap-6 items-stretch">
+        <div className="flex-1">
           {/* Map */}
           <div
-            className="rounded-lg p-4 mb-4"
-            style={{ backgroundColor: "#343538" }}
+            className="rounded-[30px] p-6 mb-4"
+            style={{ backgroundColor: "#232426" }}
           >
-            <div className={selectedVehicle ? "h-[500px] rounded overflow-hidden transition-all duration-500" : "h-[600px] rounded overflow-hidden transition-all duration-500 w-full"}>
+            <div className={selectedVehicle ? "h-[500px] rounded-[20px] overflow-hidden transition-all duration-500" : "h-[600px] rounded-[20px] overflow-hidden transition-all duration-500 w-full"}>
               <GoogleMap
                 vehicles={vehicleData}
                 selectedVehicle={selectedVehicle}
@@ -421,7 +475,7 @@ const HomeScreen = () => {
 
         {/* Sidebar */}
         {selectedVehicle && (
-          <div key={selectedVehicle.id} className="w-80 space-y-4 animate-fade-in-right relative">
+          <div key={selectedVehicle.id} className="w-80 flex flex-col gap-4 animate-fade-in-right relative">
             <VehicleSidebarCard
               vehicle={selectedVehicle}
               onClose={handleCloseVehicle}
@@ -432,7 +486,7 @@ const HomeScreen = () => {
               canGoPrev={canGoPrev}
               canGoNext={canGoNext}
             />
-            <TripHistoryCard tripHistory={tripHistory} />
+            <TripHistoryCard tripHistory={tripHistory} isDetailExpanded={isDetailExpanded} />
           </div>
         )}
       </div>

@@ -20,7 +20,7 @@ export default function Register() {
     setValidation([]);
 
     try {
-      const response = await api.post("/api/register", {
+      const response = await api.post("/register", {
         name: name,
         email: email,
         password: password,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import mqtt from 'mqtt';
 
-const MQTT_URL = 'ws://mqtt.aistrack.site';
+const MQTT_URL = 'wss://mqtt.aistrack.site';
 const DEFAULT_TOPIC = ['#', 'fms/+/data']; // Subscribe to all and specific pattern
 
 /**

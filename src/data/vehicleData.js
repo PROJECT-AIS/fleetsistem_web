@@ -38,6 +38,36 @@ export const DEFAULT_WEEKLY_FUEL = [
   { day: 'Min', value: 42 },
 ];
 
+// ========== NEW DASHBOARD DUMMY DATA ==========
+
+// Status Device stats
+export const STATUS_DEVICE = {
+  total: 25,
+  on: 15,
+  lossCoordinate: 5,
+  off: 5,
+};
+
+// Status Alat stats
+export const STATUS_ALAT = {
+  total: 25,
+  on: 15,
+  passive: 5,
+  off: 5,
+};
+
+// Total Produksi items
+export const TOTAL_PRODUKSI = [
+  { label: 'OB - Disposal', value: 10000 },
+  { label: 'LIM ORE - Stockpile', value: 10000 },
+  { label: 'LIM ORE - Barge', value: 10000 },
+  { label: 'SAP ORE - Stockpile', value: 10000 },
+  { label: 'SAP ORE - Barge', value: 10000 },
+];
+
+// Konsumsi BBM
+export const KONSUMSI_BBM = 30000;
+
 /**
  * Generate vehicle data with dynamic position
  * @param {Array} lastGps - Last GPS position [lat, lng]
@@ -212,7 +242,7 @@ export function generateVehicleData(lastGps, heading, gpsPath) {
   ];
 }
 
-// Dashboard stats data
+// Dashboard stats data (legacy - kept for compatibility)
 export const DASHBOARD_STATS = {
   total: 25,
   online: 15,
@@ -226,4 +256,8 @@ export default {
   DEFAULT_WEEKLY_FUEL,
   generateVehicleData,
   DASHBOARD_STATS,
+  STATUS_DEVICE,
+  STATUS_ALAT,
+  TOTAL_PRODUKSI,
+  KONSUMSI_BBM,
 };
