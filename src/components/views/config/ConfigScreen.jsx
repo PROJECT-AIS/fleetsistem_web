@@ -5,7 +5,7 @@ import { alatService, operatorService, lokasiService, kalibrasiService, pengawas
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
 import mqtt from 'mqtt';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyA6myHzS10YXdcazAFalmXvDkrYCp5cLc8';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
 const MQTT_BROKER_URL = 'wss://mqtt.aistrack.site:443';
 const MQTT_TOPIC = 'fms/web';
 

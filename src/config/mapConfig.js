@@ -2,6 +2,8 @@
  * Map configuration constants
  */
 
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
+
 export const MAP_CONFIG = {
   // Default center point (Makassar, Indonesia)
   defaultCenter: [-5.14, 119.43],
