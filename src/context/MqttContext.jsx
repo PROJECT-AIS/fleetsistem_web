@@ -1,22 +1,26 @@
-import React, { createContext, useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
+import { AuthContext } from './authContextValue';
+import { MqttContext } from './mqttContextValue';
 import { useMqtt } from '../hooks/useMqtt';
 
-const MqttContext = createContext();
+const EMPTY_MQTT_DATA = {
+    vehicles: [],
+    mqttStatus: 'idle',
+    rawVehicles: {}
+};
 
 export const MqttProvider = ({ children }) => {
-    const mqttData = useMqtt();
+    const { isAuthenticated, loading } = useContext(AuthContext);
+    const enabled = isAuthenticated && !loading;
+    const mqttData = useMqtt(undefined, { enabled });
+    const value = useMemo(
+        () => (enabled ? mqttData : EMPTY_MQTT_DATA),
+        [enabled, mqttData]
+    );
 
     return (
-        <MqttContext.Provider value={mqttData}>
+        <MqttContext.Provider value={value}>
             {children}
         </MqttContext.Provider>
     );
-};
-
-export const useMqttContext = () => {
-    const context = useContext(MqttContext);
-    if (!context) {
-        throw new Error('useMqttContext must be used within an MqttProvider');
-    }
-    return context;
 };

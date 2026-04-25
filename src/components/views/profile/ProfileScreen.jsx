@@ -2,7 +2,7 @@ import React, { useState, useCallback, useContext, useEffect, useRef } from "rea
 import { Edit2, LogOut, Camera, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PageLayout from "../../layout/PageLayout";
-import { AuthContext } from "../../../context/AuthContext";
+import { AuthContext } from "../../../context/authContextValue";
 import api from "../../../services/api";
 
 // Backend URL for images

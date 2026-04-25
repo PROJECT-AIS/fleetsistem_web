@@ -1,53 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Download, Search, ChevronLeft, ChevronRight, Calendar, Filter } from "lucide-react";
-import * as XLSX from "xlsx";
 import PageLayout from "../../layout/PageLayout";
 import { isDateInRange, isDateInCustomRange } from "../../../utils/dateUtils";
-import { useMqttContext } from "../../../context/MqttContext";
 import { influxService } from "../../../services/influxService";
-
-// Dummy data for development with new column structure
-const DUMMY_DATA = Array.from({ length: 50 }, (_, i) => ({
-  no: i + 1,
-  waktu: `${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}/08/2025 ${String(Math.floor(Math.random() * 12) + 8).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-  idAlat: `DEV-${String(i + 1).padStart(3, '0')}`,
-  unitKendaraan: `B ${1000 + i} XYZ`,
-  kecepatanKendaraan: Math.floor(Math.random() * 80) + 20,
-  jenisMuatan: ["Batubara", "Pasir", "Kerikil", "Tanah", "Batu"][i % 5],
-  statusMuatan: ["Terisi", "Kosong", "Setengah"][i % 3],
-  statusUnit: {
-    start: `${String(Math.floor(Math.random() * 4) + 6).padStart(2, '0')}:00:00`,
-    rentangWaktuAktif: `${8 + (i % 4)}:00 - ${12 + (i % 4)}:00`,
-    totalDurasiAktif: `${4 + (i % 3)} jam`,
-    rentangWaktuPasif: `${12 + (i % 4)}:00 - ${13 + (i % 4)}:00`,
-    totalWaktuPasif: `${1 + (i % 2)} jam`,
-    mati: i % 5 === 0 ? "Ya" : "Tidak",
-  },
-  operator: {
-    nama: ["Ahmad Rizki", "Budi Santoso", "Candra Wijaya", "Dedi Kurniawan", "Eko Prasetyo"][i % 5],
-    id: `OP-${String(i + 1).padStart(3, '0')}`,
-    jabatan: ["Driver", "Operator", "Supervisor", "Driver", "Operator"][i % 5],
-    divisi: ["Operasional", "Logistik", "Manajemen", "Operasional", "Logistik"][i % 5],
-  },
-  gps: {
-    latitude: -6.2 + (Math.random() * 0.1),
-    longitude: 106.8 + (Math.random() * 0.1),
-    trip: `Trip-${String(i + 1).padStart(2, '0')}`,
-  },
-  sensorFuel: {
-    volumeBahanBakar: Math.floor(Math.random() * 200) + 50,
-    konsumsi: (Math.random() * 5 + 2).toFixed(2),
-    anomaliStatus: i % 7 === 0 ? "Terdeteksi" : "Normal",
-    bahanBakarMasuk: Math.floor(Math.random() * 100) + 20,
-  },
-  lokasi: {
-    awal: ["Pit A", "Pit B", "Pit C", "Stockpile 1", "Crusher"][i % 5],
-    akhir: ["Stockpile 1", "Stockpile 2", "Port", "Crusher", "Pit A"][i % 5],
-  },
-  retase: {
-    setUlangRetase: i % 3 === 0 ? "Ya" : "Tidak",
-  },
-}));
 
 const FILTER_OPTIONS = ["Semua", "Hari Ini", "Minggu Ini", "Bulan Ini"];
 
@@ -83,6 +38,28 @@ const StatusBadge = ({ status, type }) => {
   );
 };
 
+
+const TableSkeleton = () => (
+  <>
+    {[...Array(10)].map((_, i) => (
+      <tr key={i} className="animate-pulse" style={{ backgroundColor: i % 2 === 0 ? '#2d2e32' : '#343538' }}>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-8"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-32"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-32"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-16"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-20"></div></td>
+        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
+        {[...Array(20)].map((_, j) => (
+          <td key={j} className="px-3 py-4">
+            <div className="h-4 bg-gray-700/50 rounded w-full"></div>
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
+
 export default function History() {
   const [activeFilter, setActiveFilter] = useState("Semua");
   const [startDate, setStartDate] = useState("");
@@ -91,13 +68,13 @@ export default function History() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { rawVehicles } = useMqttContext();
   const [influxLogs, setInfluxLogs] = useState([]);
   const [totalData, setTotalData] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
+  const fetchHistory = useCallback(async (isInitial = false) => {
+    if (!isInitial && currentPage !== 1) return; // Only auto-poll on first page
+
     try {
       let fromStr = "-30d";
       if (activeFilter === "Hari Ini") fromStr = "-24h";
@@ -109,14 +86,29 @@ export default function History() {
       if (endDate) toStr = new Date(endDate).toISOString();
 
       const params = {
-        page: currentPage,
+        page: isInitial ? currentPage : 1, // Always fetch latest on poll
         limit: itemsPerPage,
         search: search,
         from: fromStr,
         to: toStr
       };
       const res = await influxService.getHistory(params);
-      setInfluxLogs(res.data.data);
+      
+      if (isInitial) {
+        setInfluxLogs(res.data.data);
+      } else {
+        setInfluxLogs(prev => {
+          // Filter out data we already have to avoid duplicates
+          const newData = res.data.data.filter(item => 
+            !prev.some(p => p.waktu === item.waktu && p.unitKendaraan === item.unitKendaraan)
+          );
+          if (newData.length === 0) return prev;
+          // Prepend new data and keep a reasonable limit
+          const combined = [...newData, ...prev];
+          return combined.slice(0, 500); 
+        });
+      }
+      
       setTotalData(res.data.total || 0);
     } catch (error) {
       console.error("Error fetching history:", error);
@@ -126,10 +118,14 @@ export default function History() {
   }, [currentPage, search, startDate, endDate, activeFilter]);
 
   useEffect(() => {
-    fetchHistory();
+    setLoading(true);
+    fetchHistory(true);
   }, [fetchHistory]);
 
-  const mqttLogs = useMemo(() => [], []);
+  useEffect(() => {
+    const interval = setInterval(() => fetchHistory(false), 5000); // 5s poll for live feel
+    return () => clearInterval(interval);
+  }, [fetchHistory]);
 
   const historyData = useMemo(() => {
     return influxLogs;
@@ -156,7 +152,9 @@ export default function History() {
   const paginatedData = influxLogs;
 
   // Export to Excel function
-  const handleExport = () => {
+  const handleExport = async () => {
+    const XLSX = await import("xlsx");
+
     // Prepare data for Excel
     const excelData = filteredData.map((row, index) => ({
       'No': index + 1,
@@ -354,10 +352,12 @@ export default function History() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#4a4b4d]">
-                {paginatedData.length > 0 ? (
+                {loading && influxLogs.length === 0 ? (
+                  <TableSkeleton />
+                ) : paginatedData.length > 0 ? (
                   paginatedData.map((row, index) => (
                     <tr
-                      key={row.seq || row.no}
+                      key={`${row.waktu}-${row.idAlat}-${index}`}
                       className="hover:bg-[#3d3e42] transition-colors duration-150"
                       style={{ backgroundColor: index % 2 === 0 ? '#2d2e32' : '#343538' }}
                     >

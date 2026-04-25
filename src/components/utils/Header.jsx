@@ -1,7 +1,7 @@
 import React, { useState, useContext, useCallback } from "react";
 import { ChevronDown, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/authContextValue";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 

@@ -55,11 +55,10 @@ const VehicleMarker = ({ vehicle, isSelected, onVehicleClick, onVehicleHover, on
                 // Add click handler directly to element to ensure it works
                 const handleClick = (e) => {
                     e.stopPropagation();
-                    console.log('Marker clicked:', vehicle.name);
                     if (onVehicleClick) onVehicleClick(vehicle);
                 };
 
-                const handleMouseEnter = (e) => {
+                const handleMouseEnter = () => {
                     const rect = element.getBoundingClientRect();
                     if (onVehicleHover) {
                         onVehicleHover(vehicle, {

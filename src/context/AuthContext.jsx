@@ -1,8 +1,7 @@
-import { createContext, useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Cookies from "js-cookie";
 import api from "../services/api";
-
-export const AuthContext = createContext();
+import { AuthContext } from "./authContextValue";
 
 export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(!!Cookies.get('token'));
@@ -18,6 +17,14 @@ export const AuthProvider = ({ children }) => {
         return null;
     });
     const [loading, setLoading] = useState(true);
+
+    // Logout function
+    const logout = useCallback(() => {
+        Cookies.remove('token');
+        Cookies.remove('user');
+        setUser(null);
+        setIsAuthenticated(false);
+    }, []);
 
     // Verify token and fetch user data on mount
     useEffect(() => {
@@ -45,7 +52,7 @@ export const AuthProvider = ({ children }) => {
         };
 
         verifyAuth();
-    }, []);
+    }, [logout]);
 
     // Handle storage events for multi-tab sync
     useEffect(() => {
@@ -77,14 +84,6 @@ export const AuthProvider = ({ children }) => {
             return { success: true };
         }
         return { success: false, message: response.data.message };
-    }, []);
-
-    // Logout function
-    const logout = useCallback(() => {
-        Cookies.remove('token');
-        Cookies.remove('user');
-        setUser(null);
-        setIsAuthenticated(false);
     }, []);
 
     // Update user profile

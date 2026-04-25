@@ -16,13 +16,15 @@ export function isDateInRange(dateStr, filter) {
   switch (filter) {
     case "Hari Ini":
       return date >= startOfToday;
-    case "Minggu Ini":
+    case "Minggu Ini": {
       const startOfWeek = new Date(startOfToday);
       startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
       return date >= startOfWeek;
-    case "Bulan Ini":
+    }
+    case "Bulan Ini": {
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       return date >= startOfMonth;
+    }
     default:
       return true;
   }

@@ -142,6 +142,8 @@ const GoogleMap = ({
 
     // Helper to rotate the icon using canvas
     const getRotatedIcon = useCallback((url, heading = 0) => {
+        if (iconsLoadedCount === 0) return url;
+
         const normalizedHeading = Math.round(heading || 0);
         // Offset: dp.png faces West/Left. Rotate +90 for North.
         const rotationAngle = (normalizedHeading + 90) % 360;
@@ -172,7 +174,7 @@ const GoogleMap = ({
     }, [iconsLoadedCount]); // Re-create when icons load
 
     // Create marker icon
-    const createMarkerIcon = useCallback((isSelected, heading = 0, vehicleId) => {
+    const createMarkerIcon = useCallback((isSelected, heading = 0) => {
         if (!window.google) return null;
 
         const iconUrl = isSelected ? '/assets/selected-vehicle.png' : '/assets/dp.png';
@@ -268,7 +270,7 @@ const GoogleMap = ({
                     <Marker
                         key={vehicle.id}
                         position={{ lat: vehicle.lat, lng: vehicle.lng }}
-                        icon={createMarkerIcon(isSelected, vehicle.heading, vehicle.id)}
+                        icon={createMarkerIcon(isSelected, vehicle.heading)}
                         onClick={() => handleMarkerClick(vehicle)}
                         onMouseOver={(e) => handleMarkerMouseOver(vehicle, e)}
                         onMouseOut={handleMarkerMouseOut}

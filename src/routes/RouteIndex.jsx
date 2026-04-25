@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute, PublicRoute } from '../components/auth/ProtectedRoute'
+import { MqttProvider } from '../context/MqttContext.jsx'
 
 // Loading component
 const LoadingFallback = () => (
@@ -263,7 +264,9 @@ function RouteIndex() {
           path='/statistics'
           element={
             <ProtectedRoute>
-              <Statistics />
+              <MqttProvider>
+                <Statistics />
+              </MqttProvider>
             </ProtectedRoute>
           }
         />

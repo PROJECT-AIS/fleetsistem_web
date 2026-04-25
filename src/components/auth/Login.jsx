@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/authContextValue";
 import api from "../../services/api";
 import Cookies from "js-cookie";
 

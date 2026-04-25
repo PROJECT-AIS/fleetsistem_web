@@ -1,81 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import mqtt from 'mqtt';
 
 const MQTT_URL = 'wss://mqtt.aispektra.com:443';
 const DEFAULT_TOPIC = 'fms/+/data';
+const DEBUG_MQTT = import.meta.env.DEV && import.meta.env.VITE_DEBUG_MQTT === 'true';
 
 /**
  * Hook to manage MQTT connection and vehicle telemetry
  */
-export const useMqtt = (topic = DEFAULT_TOPIC) => {
+export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true } = {}) => {
     const [vehicles, setVehicles] = useState({});
-    const [status, setStatus] = useState('connecting');
+    const [status, setStatus] = useState(enabled ? 'connecting' : 'idle');
     const clientRef = useRef(null);
 
-    useEffect(() => {
-        console.log(`Connecting to MQTT: ${MQTT_URL}`);
-        const client = mqtt.connect(MQTT_URL, {
-            clientId: 'ais_web_' + Math.random().toString(16).substring(2, 8),
-            keepalive: 60,
-            clean: true,
-            reconnectPeriod: 2000,
-            connectTimeout: 30 * 1000,
-        });
-
-        client.on('connect', () => {
-            console.log('MQTT Connected');
-            setStatus('connected');
-            if (Array.isArray(topic)) {
-                topic.forEach(t => client.subscribe(t));
-            } else {
-                client.subscribe(topic);
-            }
-        });
-
-        client.on('message', (receivedTopic, message) => {
-            const rawMessage = message.toString();
-            console.log(`MQTT Raw [${receivedTopic}]:`, rawMessage);
-            try {
-                const data = JSON.parse(rawMessage);
-                
-                // Extract ID from topic if not in JSON
-                let extractedId = data.vehicle_id || data.device_id;
-                if (!extractedId && receivedTopic.startsWith('fms/')) {
-                    const parts = receivedTopic.split('/');
-                    if (parts.length >= 2) extractedId = parts[1];
-                }
-
-                if (extractedId) {
-                    // For FMS topics, we handle the data even if type is missing
-                    processVehicleData({ ...data, vehicle_id: extractedId }, receivedTopic);
-                } else {
-                    console.warn('MQTT Message skipped (no id found):', receivedTopic);
-                }
-            } catch (e) {
-                console.error('Error parsing MQTT message:', e);
-            }
-        });
-
-        client.on('error', (err) => {
-            console.error('MQTT Error:', err);
-            setStatus('error');
-        });
-
-        client.on('close', () => {
-            console.log('MQTT Connection closed');
-            setStatus('offline');
-        });
-
-        clientRef.current = client;
-
-        return () => {
-            if (clientRef.current) {
-                clientRef.current.end();
-            }
-        };
-    }, [topic]);
-
-    const processVehicleData = useCallback((data, topic) => {
+    const processVehicleData = useCallback((data) => {
         const vehicleId = data.vehicle_id || data.device_id || 'unknown';
         
         // Extract coordinates based on confirmed JSON structure: data.gps.lat and data.gps.lon
@@ -138,8 +75,113 @@ export const useMqtt = (topic = DEFAULT_TOPIC) => {
             };
         });
         
-        console.log(`[useMqtt] Processed ${vehicleId}: lat=${lat}, lng=${lng}, heading=${heading}`);
+        if (DEBUG_MQTT) {
+            console.log(`[useMqtt] Processed ${vehicleId}: lat=${lat}, lng=${lng}, heading=${heading}`);
+        }
     }, []);
+
+    useEffect(() => {
+        if (!enabled) {
+            if (clientRef.current) {
+                clientRef.current.end(true);
+                clientRef.current = null;
+            }
+            setVehicles({});
+            setStatus('idle');
+            return undefined;
+        }
+
+        let isActive = true;
+        let client = null;
+
+        setStatus('connecting');
+
+        import('mqtt').then(({ default: mqtt }) => {
+            if (!isActive) return;
+
+            if (DEBUG_MQTT) {
+                console.log(`Connecting to MQTT: ${MQTT_URL}`);
+            }
+
+            client = mqtt.connect(MQTT_URL, {
+                clientId: 'ais_web_' + Math.random().toString(16).substring(2, 8),
+                keepalive: 60,
+                clean: true,
+                reconnectPeriod: 2000,
+                connectTimeout: 30 * 1000,
+            });
+
+            client.on('connect', () => {
+                if (!isActive) return;
+                if (DEBUG_MQTT) {
+                    console.log('MQTT Connected');
+                }
+                setStatus('connected');
+                if (Array.isArray(topic)) {
+                    topic.forEach(t => client.subscribe(t));
+                } else {
+                    client.subscribe(topic);
+                }
+            });
+
+            client.on('message', (receivedTopic, message) => {
+                if (!isActive) return;
+                const rawMessage = message.toString();
+                if (DEBUG_MQTT) {
+                    console.log(`MQTT Raw [${receivedTopic}]:`, rawMessage);
+                }
+                try {
+                    const data = JSON.parse(rawMessage);
+                    
+                    // Extract ID from topic if not in JSON
+                    let extractedId = data.vehicle_id || data.device_id;
+                    if (!extractedId && receivedTopic.startsWith('fms/')) {
+                        const parts = receivedTopic.split('/');
+                        if (parts.length >= 2) extractedId = parts[1];
+                    }
+
+                    if (extractedId) {
+                        // For FMS topics, we handle the data even if type is missing
+                        processVehicleData({ ...data, vehicle_id: extractedId });
+                    } else {
+                        console.warn('MQTT Message skipped (no id found):', receivedTopic);
+                    }
+                } catch (e) {
+                    console.error('Error parsing MQTT message:', e);
+                }
+            });
+
+            client.on('error', (err) => {
+                if (!isActive) return;
+                console.error('MQTT Error:', err);
+                setStatus('error');
+            });
+
+            client.on('close', () => {
+                if (!isActive) return;
+                if (DEBUG_MQTT) {
+                    console.log('MQTT Connection closed');
+                }
+                setStatus('offline');
+            });
+
+            clientRef.current = client;
+        }).catch((err) => {
+            if (!isActive) return;
+            console.error('MQTT module load error:', err);
+            setStatus('error');
+        });
+
+        return () => {
+            isActive = false;
+            if (client) {
+                client.end(true);
+            }
+            if (clientRef.current === client) {
+                clientRef.current = null;
+            }
+        };
+    }, [enabled, processVehicleData, topic]);
 
     return {
         vehicles: Object.values(vehicles),

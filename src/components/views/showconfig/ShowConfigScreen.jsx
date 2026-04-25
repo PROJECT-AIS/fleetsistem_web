@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";

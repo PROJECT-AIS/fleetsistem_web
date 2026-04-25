@@ -16,16 +16,13 @@ import {
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageLayout from "../../layout/PageLayout";
 import GoogleMap from "../../utils/maps/GoogleMap";
-import { computeBearing } from "../../../utils/mapUtils";
 import {
   GPS_PATH_DEFAULT,
-  generateVehicleData,
   STATUS_ALAT,
   STATUS_DEVICE,
   TOTAL_PRODUKSI,
   KONSUMSI_BBM,
 } from "../../../data/vehicleData";
-import { useMqttContext } from "../../../context/MqttContext";
 import { influxService } from "../../../services/influxService";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -98,7 +95,7 @@ const CustomChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-xl border border-[#7fff3f]/40 bg-[#242529]/95 px-3 py-2 shadow-xl">
+    <div className="z-[9999] rounded-xl border border-[#74CD25]/30 bg-[#242529]/95 px-3 py-2 shadow-xl">
       <div className="text-sm font-black text-[#7fff3f]">{payload[0].value} L</div>
       <div className="text-xs text-white/70">{label}</div>
     </div>
@@ -106,19 +103,19 @@ const CustomChartTooltip = ({ active, payload, label }) => {
 };
 
 const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }) => (
-  <div className="h-[212px] min-w-0 overflow-hidden rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
+  <div className="h-[212px] min-w-0 rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
     <div className="rounded-t-[20px] bg-[#7c7c7c] px-5 py-3 text-center text-[17px] font-extrabold leading-tight text-white">
       {title}
     </div>
     <div className="flex h-[156px] flex-col p-4">
       <div className="mb-2 text-xs font-medium text-white/65">{subtitle}</div>
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 pointer-events-auto">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 6, right: 4, left: -20, bottom: 0 }}>
             <CartesianGrid stroke="#5b5c60" vertical={false} />
             <XAxis dataKey={xKey} tick={{ fill: "#d4d4d8", fontSize: 10 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "#d4d4d8", fontSize: 10 }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomChartTooltip />} />
+            <Tooltip content={<CustomChartTooltip />} trigger="axis" isAnimationActive={false} />
             <Line
               type="monotone"
               dataKey="value"
@@ -308,30 +305,23 @@ const VehicleTooltip = React.memo(({ vehicle, position }) => {
 const HomeScreen = () => {
   const gpsPath = useMemo(() => GPS_PATH_DEFAULT, []);
 
-  const lastGps = gpsPath[gpsPath.length - 1];
-  const prevGps = gpsPath[gpsPath.length - 2] || lastGps;
-  const computedHeading = useMemo(
-    () => Math.round(computeBearing(prevGps[0], prevGps[1], lastGps[0], lastGps[1])),
-    [prevGps, lastGps]
-  );
-
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [hoveredVehicle, setHoveredVehicle] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
 
-  const { vehicles: liveVehicles } = useMqttContext();
   const [influxSummary, setInfluxSummary] = useState(null);
   const [influxVehicles, setInfluxVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAnimated, setHasAnimated] = useState(false);
+  const hasInfluxVehicles = influxVehicles.length > 0;
 
   useEffect(() => {
-    if (!loading && influxVehicles.length > 0 && !hasAnimated) {
+    if (!loading && hasInfluxVehicles && !hasAnimated) {
       const timer = setTimeout(() => setHasAnimated(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [loading, influxVehicles.length > 0, hasAnimated]);
+  }, [loading, hasInfluxVehicles, hasAnimated]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -340,7 +330,19 @@ const HomeScreen = () => {
         influxService.getVehicles()
       ]);
       setInfluxSummary(summaryRes.data);
-      setInfluxVehicles(vehiclesRes.data);
+      
+      // Preserve existing fuel data when updating vehicles
+      setInfluxVehicles(prev => {
+        const incoming = vehiclesRes.data || [];
+        return incoming.map(newV => {
+          const existing = prev.find(p => p.id === newV.id);
+          return {
+            ...newV,
+            fuelData: existing?.fuelData || [],
+            weeklyFuel: existing?.weeklyFuel || []
+          };
+        });
+      });
     } catch (error) {
       console.error("Error fetching influx data:", error);
     } finally {
@@ -355,38 +357,46 @@ const HomeScreen = () => {
   }, [fetchDashboardData]);
 
   const vehicleData = useMemo(() => {
-    const dummy = generateVehicleData(lastGps, computedHeading, gpsPath);
-    // Use influx vehicles as the ONLY source of truth for the dashboard list/map
-    const baseVehicles = influxVehicles.length > 0 
-      ? influxVehicles.map(v => ({ ...dummy[0], ...v })) 
-      : [...dummy];
+    if (influxVehicles.length === 0) return [];
+    return influxVehicles.map(v => ({
+      ...v,
+      image: '/assets/selected-vehicle.png',
+      name: v.name || v.id,
+      plateNumber: v.plateNumber || v.id,
+    }));
+  }, [influxVehicles]);
 
-    return baseVehicles;
-  }, [influxVehicles, lastGps, computedHeading, gpsPath]);
-
-  // Fetch fuel charts when a vehicle is selected
+  // Fetch fuel charts when a vehicle is selected and keep it updated
   useEffect(() => {
-    if (selectedVehicle) {
-      const fetchFuelData = async () => {
-        try {
-          const [realtimeRes, weeklyRes] = await Promise.all([
-            influxService.getFuelRealtime(selectedVehicle.id),
-            influxService.getFuelWeekly(selectedVehicle.id)
-          ]);
-          
-          // Update the selected vehicle in the list with new fuel data
-          setInfluxVehicles(prev => prev.map(v => 
-            v.id === selectedVehicle.id 
-              ? { ...v, fuelData: realtimeRes.data, weeklyFuel: weeklyRes.data }
-              : v
-          ));
-        } catch (error) {
-          console.error("Error fetching fuel charts:", error);
-        }
-      };
-      fetchFuelData();
-    }
+    if (!selectedVehicle?.id) return;
+
+    const fetchFuelData = async () => {
+      try {
+        const [realtimeRes, weeklyRes] = await Promise.all([
+          influxService.getFuelRealtime(selectedVehicle.id),
+          influxService.getFuelWeekly(selectedVehicle.id)
+        ]);
+        
+        setInfluxVehicles(prev => prev.map(v => {
+          if (v.id !== selectedVehicle.id) return v;
+          return {
+            ...v,
+            // Only update if we got real data, otherwise keep previous
+            fuelData: (realtimeRes.data && realtimeRes.data.length > 0) ? realtimeRes.data : v.fuelData,
+            weeklyFuel: (weeklyRes.data && weeklyRes.data.length > 0) ? weeklyRes.data : v.weeklyFuel,
+          };
+        }));
+      } catch (error) {
+        console.error("Error fetching fuel charts:", error);
+        // Don't clear data on error — keep showing last known data
+      }
+    };
+
+    fetchFuelData();
+    const interval = setInterval(fetchFuelData, 300000); // Poll fuel every 5 minutes
+    return () => clearInterval(interval);
   }, [selectedVehicle?.id]);
+
   const currentVehicle = useMemo(() => {
     if (!selectedVehicle) return null;
     return vehicleData.find((v) => v.id === selectedVehicle.id) || selectedVehicle;
@@ -456,7 +466,6 @@ const HomeScreen = () => {
 
   const deviceItems = useMemo(
     () => [
-      { icon: Monitor, value: influxSummary?.status_device?.total || STATUS_DEVICE.total, label: "Total", accent: "text-white" },
       { icon: Power, value: influxSummary?.status_device?.on || STATUS_DEVICE.on, label: "ON", accent: "text-[#39ff14]" },
       {
         icon: AlertTriangle,
@@ -465,16 +474,17 @@ const HomeScreen = () => {
         accent: "text-[#ffc107]",
       },
       { icon: WifiOff, value: influxSummary?.status_device?.off || STATUS_DEVICE.off, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Monitor, value: influxSummary?.status_device?.total || STATUS_DEVICE.total, label: "Total", accent: "text-white" },
     ],
     [influxSummary]
   );
 
   const equipmentItems = useMemo(
     () => [
+      { icon: Truck, value: influxSummary?.status_alat?.on || STATUS_ALAT.on, label: "ON", accent: "text-[#39ff14]" },
       { icon: Truck, value: influxSummary?.status_alat?.passive || STATUS_ALAT.passive, label: "Passive", accent: "text-[#ffc107]" },
       { icon: Truck, value: influxSummary?.status_alat?.off || STATUS_ALAT.off, label: "OFF", accent: "text-[#ff3131]" },
       { icon: Truck, value: influxSummary?.status_alat?.total || STATUS_ALAT.total, label: "Total", accent: "text-white" },
-      { icon: Truck, value: influxSummary?.status_alat?.on || STATUS_ALAT.on, label: "ON", accent: "text-[#39ff14]" },
     ],
     [influxSummary]
   );

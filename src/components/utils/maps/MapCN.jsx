@@ -16,6 +16,8 @@ const MapCN = ({
     const mapContainer = useRef(null);
     const map = useRef(null);
     const markersRef = useRef({});
+    const initialCenterRef = useRef(center);
+    const initialZoomRef = useRef(zoom);
 
     // Initialize map once
     useEffect(() => {
@@ -48,8 +50,8 @@ const MapCN = ({
                 ],
                 glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
             },
-            center: center,
-            zoom: zoom
+            center: initialCenterRef.current,
+            zoom: initialZoomRef.current
         });
 
         map.current.addControl(new maplibregl.NavigationControl(), 'top-left');
@@ -93,7 +95,6 @@ const MapCN = ({
             el.onclick = function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Marker clicked:', vehicle.name);
                 if (onVehicleClick) {
                     onVehicleClick(vehicle);
                 }
@@ -140,7 +141,7 @@ const MapCN = ({
                 if (map.current.getSource('route')) {
                     map.current.removeSource('route');
                 }
-            } catch (e) {
+            } catch {
                 // Ignore errors if layer/source doesn't exist
             }
 

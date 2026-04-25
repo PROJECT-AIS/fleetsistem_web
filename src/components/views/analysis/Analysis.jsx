@@ -266,10 +266,8 @@ const renderHeaderLabel = (label) => (
 
 export default function Analysis() {
   const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   const fetchAnalysisData = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await influxService.getHistory({ limit: 100 }); // Get more for analysis
       const formatted = res.data.data.map(r => ({
@@ -300,8 +298,6 @@ export default function Analysis() {
       setRows(formatted);
     } catch (error) {
       console.error("Error fetching analysis data:", error);
-    } finally {
-      setLoading(false);
     }
   }, []);
 

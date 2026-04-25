@@ -21,7 +21,7 @@ import {
   YAxis,
 } from "recharts";
 import PageLayout from "../../layout/PageLayout";
-import { useMqttContext } from "../../../context/MqttContext";
+import { useMqttContext } from "../../../context/mqttContextValue";
 import { influxService } from "../../../services/influxService";
 
 const MATERIALS = [
@@ -257,7 +257,7 @@ const PieTooltip = ({ active, payload }) => {
   const item = payload[0].payload;
 
   return (
-    <div className="rounded-xl border border-[#74CD25]/30 bg-[#242529]/95 px-3 py-2 shadow-xl">
+    <div className="z-[9999] rounded-xl border border-[#74CD25]/30 bg-[#242529]/95 px-3 py-2 shadow-xl">
       <div className="text-xs font-semibold uppercase tracking-wide text-white/60">{item.name}</div>
       <div className="mt-1 text-sm font-black text-[#74CD25]">{item.percent}%</div>
     </div>
@@ -288,7 +288,7 @@ const ChartCard = ({ title, subtitle, children }) => (
       </div>
       <BarChart3 className="h-5 w-5 flex-shrink-0 text-[#74CD25]" />
     </div>
-    <div className="h-[250px]">{children}</div>
+    <div className="h-[250px] pointer-events-auto relative">{children}</div>
   </div>
 );
 
@@ -339,6 +339,7 @@ export default function Statistics() {
   const { rawVehicles } = useMqttContext();
   const [influxStats, setInfluxStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasInfluxStats = influxStats.length > 0;
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -359,11 +360,11 @@ export default function Statistics() {
   const [hasAnimated, setHasAnimated] = useState(false);
 
   useEffect(() => {
-    if (!loading && influxStats.length > 0 && !hasAnimated) {
+    if (!loading && hasInfluxStats && !hasAnimated) {
       const timer = setTimeout(() => setHasAnimated(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [loading, influxStats.length > 0, hasAnimated]);
+  }, [loading, hasInfluxStats, hasAnimated]);
 
   const vehicles = useMemo(() => Object.values(rawVehicles || {}), [rawVehicles]);
   const liveSeries = useMemo(() => buildLiveSeries(vehicles), [vehicles]);
@@ -466,7 +467,7 @@ export default function Statistics() {
                 <CartesianGrid stroke="#4a4b4d" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
                 <Bar 
                   dataKey="value" 
                   name="Total Produksi" 
@@ -488,7 +489,7 @@ export default function Statistics() {
                 <CartesianGrid stroke="#4a4b4d" vertical={false} />
                 <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
                 <Line
                   type="monotone"
                   dataKey="fuel"
@@ -512,7 +513,7 @@ export default function Statistics() {
                 <CartesianGrid stroke="#4a4b4d" vertical={false} />
                 <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
                 <Line
                   type="monotone"
                   dataKey="operating"
@@ -532,7 +533,7 @@ export default function Statistics() {
                 <CartesianGrid stroke="#4a4b4d" vertical={false} />
                 <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
                 <Bar dataKey="trip" name="Trip" fill="#14B8A6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

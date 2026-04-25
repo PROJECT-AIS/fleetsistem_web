@@ -422,7 +422,7 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
     // Function to publish MQTT message
-    const publishMqttMessage = (lokasiData) => {
+    const publishMqttMessage = () => {
         const client = mqtt.connect(MQTT_BROKER_URL);
 
         client.on('connect', () => {
@@ -471,11 +471,11 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
 
         setLoading(true);
         try {
-            const response = await lokasiService.create(form);
+            await lokasiService.create(form);
             showToast("Data lokasi berhasil disimpan", "success");
 
             // Publish to MQTT after successful save
-            publishMqttMessage(response.data.data || form);
+            publishMqttMessage();
 
             setForm({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
             onSaved?.();
