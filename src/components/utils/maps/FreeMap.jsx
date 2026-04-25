@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { MAP_CONFIG } from '../../../config/mapConfig';
 
 // Pre-create icons ONCE outside component to avoid re-creation
 const defaultIcon = L.icon({
@@ -45,17 +46,16 @@ const FreeMap = ({
     }).setView([-5.14, 119.43], 13);
 
     L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      MAP_CONFIG.tileLayers.googleSatellite.url,
       {
-        attribution: "Tiles © Esri",
-        maxZoom: 18,
+        attribution: MAP_CONFIG.tileLayers.googleSatellite.attribution,
+        maxZoom: MAP_CONFIG.tileLayers.googleSatellite.maxZoom,
+        tileSize: MAP_CONFIG.tileLayers.googleSatellite.tileSize,
         updateWhenIdle: true,
         updateWhenZooming: false,
         keepBuffer: 0,
         detectRetina: false,
         noWrap: true,
-        tileSize: 512,
-        zoomOffset: -1,
       }
     ).addTo(map);
 

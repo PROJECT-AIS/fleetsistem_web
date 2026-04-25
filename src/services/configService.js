@@ -47,6 +47,24 @@ export const lokasiService = {
     delete: (id) => api.delete(`/lokasi/${id}`)
 };
 
+// ===================== SHIFT CODE =====================
+export const shiftCodeService = {
+    getAll: () => api.get('/shift-code'),
+    getById: (id) => api.get(`/shift-code/${id}`),
+    create: (data) => api.post('/shift-code', data),
+    update: (id, data) => api.put(`/shift-code/${id}`, data),
+    delete: (id) => api.delete(`/shift-code/${id}`)
+};
+
+// ===================== MATERIAL TYPE =====================
+export const materialTypeService = {
+    getAll: () => api.get('/material-type'),
+    getById: (id) => api.get(`/material-type/${id}`),
+    create: (data) => api.post('/material-type', data),
+    update: (id, data) => api.put(`/material-type/${id}`, data),
+    delete: (id) => api.delete(`/material-type/${id}`)
+};
+
 // ===================== KALIBRASI =====================
 export const kalibrasiService = {
     getAll: () => api.get('/kalibrasi'),

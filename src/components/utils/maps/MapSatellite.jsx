@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { MAP_CONFIG } from '../../../config/mapConfig';
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -118,18 +119,12 @@ const MapSatellite = ({
             style={{ minHeight: '400px', ...style }}
             zoomControl={true}
         >
-            {/* ESRI World Imagery - Free Satellite Tiles (No API Key) */}
+            {/* Google Maps Satellite Tiles via Proxy (no CORS issue) */}
             <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                attribution='&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics'
-                maxZoom={19}
-            />
-
-            {/* Optional: Labels overlay for streets/places on satellite */}
-            <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                maxZoom={19}
-                opacity={0.8}
+                url={MAP_CONFIG.tileLayers.googleSatellite.url}
+                attribution={MAP_CONFIG.tileLayers.googleSatellite.attribution}
+                maxZoom={MAP_CONFIG.tileLayers.googleSatellite.maxZoom}
+                tileSize={MAP_CONFIG.tileLayers.googleSatellite.tileSize}
             />
 
             <MapController center={center} zoom={zoom} />

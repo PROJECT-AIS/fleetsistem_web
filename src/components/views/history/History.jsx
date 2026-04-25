@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Download, Search, ChevronLeft, ChevronRight, Calendar, Filter } from "lucide-react";
 import * as XLSX from "xlsx";
 import PageLayout from "../../layout/PageLayout";
 import { isDateInRange, isDateInCustomRange } from "../../../utils/dateUtils";
 import { useMqttContext } from "../../../context/MqttContext";
+import { influxService } from "../../../services/influxService";
 
 // Dummy data for development with new column structure
 const DUMMY_DATA = Array.from({ length: 50 }, (_, i) => ({
@@ -91,64 +92,48 @@ export default function History() {
   const itemsPerPage = 10;
 
   const { rawVehicles } = useMqttContext();
+  const [influxLogs, setInfluxLogs] = useState([]);
+  const [totalData, setTotalData] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // Transform live vehicle data into history logs
-  const mqttLogs = useMemo(() => {
-    const logs = [];
-    Object.values(rawVehicles).forEach(v => {
-      if (v.history) {
-        v.history.forEach((h, idx) => {
-          logs.push({
-            no: `${v.id}-${idx}`,
-            waktu: h.time,
-            idAlat: v.device_id || v.id,
-            unitKendaraan: v.vehicle_id,
-            kecepatanKendaraan: v.gps?.speed_kph || 0,
-            jenisMuatan: "-",
-            statusMuatan: "-",
-            statusUnit: {
-              start: "-",
-              rentangWaktuAktif: "-",
-              totalDurasiAktif: "-",
-              rentangWaktuPasif: "-",
-              totalWaktuPasif: "-",
-              mati: v.vehicle?.engine_on ? "Tidak" : "Ya",
-            },
-            operator: {
-              nama: "MQTT User",
-              id: "-",
-              jabatan: "-",
-              divisi: "-",
-            },
-            gps: {
-              latitude: h.lat,
-              longitude: h.lng,
-              trip: "-",
-            },
-            sensorFuel: {
-              volumeBahanBakar: v.fuel?.volume_l || 0,
-              konsumsi: v.fuel?.consumption_l || 0,
-              anomaliStatus: "Normal",
-              bahanBakarMasuk: 0,
-            },
-            lokasi: {
-              awal: "-",
-              akhir: "-",
-            },
-            retase: {
-              setUlangRetase: "Tidak",
-            },
-          });
-        });
-      }
-    });
-    return logs.reverse(); // Newest first
-  }, [rawVehicles]);
+  const fetchHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      let fromStr = "-30d";
+      if (activeFilter === "Hari Ini") fromStr = "-24h";
+      else if (activeFilter === "Minggu Ini") fromStr = "-7d";
+      else if (activeFilter === "Bulan Ini") fromStr = "-30d";
+      
+      if (startDate) fromStr = new Date(startDate).toISOString();
+      let toStr = "now()";
+      if (endDate) toStr = new Date(endDate).toISOString();
+
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: search,
+        from: fromStr,
+        to: toStr
+      };
+      const res = await influxService.getHistory(params);
+      setInfluxLogs(res.data.data);
+      setTotalData(res.data.total || 0);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, search, startDate, endDate, activeFilter]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const mqttLogs = useMemo(() => [], []);
 
   const historyData = useMemo(() => {
-    if (mqttLogs.length > 0) return mqttLogs;
-    return DUMMY_DATA;
-  }, [mqttLogs]);
+    return influxLogs;
+  }, [influxLogs]);
 
   // Filtered data based on active filters and search
   const filteredData = useMemo(() => {
@@ -166,9 +151,9 @@ export default function History() {
   }, [activeFilter, startDate, endDate, search, historyData]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil(totalData / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = influxLogs;
 
   // Export to Excel function
   const handleExport = () => {
@@ -331,7 +316,7 @@ export default function History() {
               <thead className="sticky top-0 z-10">
                 {/* Main Header Row */}
                 <tr className="bg-gradient-to-r from-[#4A8516] to-[#5FA81E]">
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">No</th>
+                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Seq</th>
                   <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Waktu</th>
                   <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">ID Alat</th>
                   <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Unit Kendaraan</th>
@@ -372,11 +357,11 @@ export default function History() {
                 {paginatedData.length > 0 ? (
                   paginatedData.map((row, index) => (
                     <tr
-                      key={row.no}
+                      key={row.seq || row.no}
                       className="hover:bg-[#3d3e42] transition-colors duration-150"
                       style={{ backgroundColor: index % 2 === 0 ? '#2d2e32' : '#343538' }}
                     >
-                      <td className="px-4 py-3 text-sm text-gray-300 font-medium">{startIndex + index + 1}</td>
+                      <td className="px-4 py-3 text-sm text-gray-300 font-medium">{row.seq}</td>
                       <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap font-mono">{row.waktu}</td>
                       <td className="px-4 py-3 text-sm text-white font-semibold">{row.idAlat}</td>
                       <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">{row.unitKendaraan}</td>

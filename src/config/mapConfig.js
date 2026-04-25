@@ -15,6 +15,14 @@ export const MAP_CONFIG = {
   
   // Tile layer URLs
   tileLayers: {
+    // Google Maps Satellite via proxy (bypasses CORS)
+    googleSatellite: {
+      url: `/google-tiles/maps/vt?pb=!1m5!1m4!1i{z}!2i{x}!3i{y}!4i256!2m1!1e1!2m3!1e0!2sm!3i772536552!3m17!2sen!3sUS!5e18!12m4!1e68!2m2!1sset!2sRoadmapSatellite!12m3!1e37!2m1!1ssmartmaps!12m4!1e26!2m2!1sstyles!2zcy50OjJ8cy5lOmx8cC52Om9mZixzLnQ6MzN8cC52Om9mZixzLnQ6Mzd8cC52Om9mZixzLnQ6MzR8cC52Om9mZixzLnQ6MzZ8cC52Om9mZixzLnQ6Mzh8cC52Om9mZixzLnQ6MzV8cC52Om9mZixzLnQ6Mzl8cC52Om9mZixzLnQ6NHxzLmU6bC5pfHAudjpvZmY!4e0!5m2!1e3!5f2&key=${GOOGLE_MAPS_API_KEY}`,
+      attribution: '© Google Maps',
+      maxZoom: 20,
+      tileSize: 256,
+    },
+    // ESRI Fallback
     satellite: {
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       attribution: 'Tiles © Esri',

@@ -9,6 +9,14 @@ export default defineConfig({
     tailwindcss()
   ],
   server: {
-    host: true
+    host: true,
+    proxy: {
+      '/google-tiles': {
+        target: 'https://maps.googleapis.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/google-tiles/, ''),
+        secure: true,
+      }
+    }
   }
 })

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import mqtt from 'mqtt';
 
-const MQTT_URL = 'wss://mqtt.aistrack.site';
-const DEFAULT_TOPIC = ['#', 'fms/+/data']; // Subscribe to all and specific pattern
+const MQTT_URL = 'wss://mqtt.aispektra.com:443';
+const DEFAULT_TOPIC = 'fms/+/data';
 
 /**
  * Hook to manage MQTT connection and vehicle telemetry

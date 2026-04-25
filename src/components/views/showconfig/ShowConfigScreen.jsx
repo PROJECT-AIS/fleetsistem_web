@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Plus, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload } from "lucide-react";
+import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
-import { alatService, operatorService, lokasiService, kalibrasiService, pengawasService } from "../../../services/configService";
+import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
 import mqtt from 'mqtt';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
-const MQTT_BROKER_URL = 'wss://mqtt.aistrack.site:443';
-const MQTT_TOPIC = 'fms/web';
+const MQTT_BROKER_URL = 'wss://mqtt.aispektra.com:443';
+const MQTT_TOPIC = 'fms/#/data';
 
 // Tab configuration
 const TABS = [
+    { id: "shift-code", label: "Shift Code", icon: PackageSearch },
+    { id: "material-type", label: "Material Type", icon: PackageSearch },
     { id: "alat", label: "Data Alat", icon: Truck },
     { id: "operator", label: "Data Operator", icon: User },
     { id: "lokasi", label: "Data Lokasi", icon: MapPin },
@@ -68,6 +70,116 @@ const FormSelect = ({ label, name, value, onChange, options, required = false, d
         </select>
     </div>
 );
+
+const EditShiftCodeModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ namaShift: "", kodeShift: "", rentangWaktu: "", keterangan: "" });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (item) {
+            setForm({
+                namaShift: item.namaShift || "",
+                kodeShift: item.kodeShift || "",
+                rentangWaktu: item.rentangWaktu || "",
+                keterangan: item.keterangan || "",
+            });
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await shiftCodeService.update(item.id, form);
+            onSave("Shift code berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update shift code", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-2xl w-full">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Shift Code</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput label="Nama Shift" name="namaShift" value={form.namaShift} onChange={handleChange} required />
+                        <FormInput label="Kode Shift" name="kodeShift" value={form.kodeShift} onChange={handleChange} required />
+                        <FormInput label="Rentang Waktu" name="rentangWaktu" value={form.rentangWaktu} onChange={handleChange} required />
+                        <FormInput label="Keterangan" name="keterangan" value={form.keterangan} onChange={handleChange} />
+                    </div>
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const EditMaterialTypeModal = ({ isOpen, onClose, item, onSave }) => {
+    const [form, setForm] = useState({ jenisMuatan: "" });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (item) {
+            setForm({ jenisMuatan: item.jenisMuatan || "" });
+        }
+    }, [item]);
+
+    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await materialTypeService.update(item.id, form);
+            onSave("Material type berhasil diupdate");
+            onClose();
+        } catch (error) {
+            onSave(error.response?.data?.message || "Gagal update material type", "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#343538] rounded-xl p-6 max-w-xl w-full">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-bold text-white">Edit Material Type</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <FormInput label="Jenis Muatan" name="jenisMuatan" value={form.jenisMuatan} onChange={handleChange} required />
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
 
 // Delete Confirmation Modal
 const DeleteModal = ({ isOpen, onClose, onConfirm, itemName }) => {
@@ -726,6 +838,17 @@ const alatColumns = [
     { key: "status", label: "Status" },
 ];
 
+const shiftCodeColumns = [
+    { key: "namaShift", label: "Nama Shift" },
+    { key: "kodeShift", label: "Kode Shift" },
+    { key: "rentangWaktu", label: "Rentang Waktu" },
+    { key: "keterangan", label: "Keterangan" },
+];
+
+const materialTypeColumns = [
+    { key: "jenisMuatan", label: "Jenis Muatan" },
+];
+
 const operatorColumns = [
     { key: "nama", label: "Nama" },
     { key: "noTelp", label: "No Telepon" },
@@ -755,8 +878,15 @@ const usersColumns = [
     { key: "noTelp", label: "No Telepon" },
 ];
 
-export default function ShowConfigScreen() {
-    const [activeTab, setActiveTab] = useState("alat");
+export default function ShowConfigScreen({
+    defaultTab = "alat",
+    pageTitle = "Show Config",
+    pageDescription = "Lihat dan kelola data konfigurasi yang sudah tersimpan.",
+    visibleTabs = null,
+}) {
+    const tabs = visibleTabs?.length ? TABS.filter((tab) => visibleTabs.includes(tab.id)) : TABS;
+    const initialTab = tabs.some((tab) => tab.id === defaultTab) ? defaultTab : tabs[0]?.id || "alat";
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [loading, setLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ open: false, item: null, type: "" });
     const [toast, setToast] = useState(null);
@@ -767,13 +897,21 @@ export default function ShowConfigScreen() {
     const [editLokasiModal, setEditLokasiModal] = useState({ open: false, item: null });
     const [editKalibrasiModal, setEditKalibrasiModal] = useState({ open: false, item: null });
     const [editUsersModal, setEditUsersModal] = useState({ open: false, item: null });
+    const [editShiftCodeModal, setEditShiftCodeModal] = useState({ open: false, item: null });
+    const [editMaterialTypeModal, setEditMaterialTypeModal] = useState({ open: false, item: null });
 
     // Data states
+    const [shiftCodeData, setShiftCodeData] = useState([]);
+    const [materialTypeData, setMaterialTypeData] = useState([]);
     const [alatData, setAlatData] = useState([]);
     const [operatorData, setOperatorData] = useState([]);
     const [lokasiData, setLokasiData] = useState([]);
     const [kalibrasiData, setKalibrasiData] = useState([]);
     const [usersData, setUsersData] = useState([]);
+
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
 
     // Fetch data based on active tab
     useEffect(() => {
@@ -785,6 +923,14 @@ export default function ShowConfigScreen() {
         try {
             let response;
             switch (tab) {
+                case "shift-code":
+                    response = await shiftCodeService.getAll();
+                    setShiftCodeData(response.data.data || []);
+                    break;
+                case "material-type":
+                    response = await materialTypeService.getAll();
+                    setMaterialTypeData(response.data.data || []);
+                    break;
                 case "alat":
                     response = await alatService.getAll();
                     setAlatData(response.data.data || []);
@@ -824,6 +970,8 @@ export default function ShowConfigScreen() {
 
     const handleEdit = (item) => {
         switch (activeTab) {
+            case "shift-code": setEditShiftCodeModal({ open: true, item }); break;
+            case "material-type": setEditMaterialTypeModal({ open: true, item }); break;
             case "alat": setEditAlatModal({ open: true, item }); break;
             case "operator": setEditOperatorModal({ open: true, item }); break;
             case "lokasi": setEditLokasiModal({ open: true, item }); break;
@@ -850,6 +998,8 @@ export default function ShowConfigScreen() {
         const { item, type } = deleteModal;
         try {
             switch (type) {
+                case "shift-code": await shiftCodeService.delete(item.id); break;
+                case "material-type": await materialTypeService.delete(item.id); break;
                 case "alat": await alatService.delete(item.id); break;
                 case "operator": await operatorService.delete(item.id); break;
                 case "lokasi":
@@ -870,6 +1020,10 @@ export default function ShowConfigScreen() {
 
     const renderTable = () => {
         switch (activeTab) {
+            case "shift-code":
+                return <DataTable columns={shiftCodeColumns} data={shiftCodeData} onEdit={handleEdit} onDelete={handleDelete} loading={loading} />;
+            case "material-type":
+                return <DataTable columns={materialTypeColumns} data={materialTypeData} onEdit={handleEdit} onDelete={handleDelete} loading={loading} />;
             case "alat":
                 return <DataTable columns={alatColumns} data={alatData} onEdit={handleEdit} onDelete={handleDelete} loading={loading} />;
             case "operator":
@@ -889,11 +1043,14 @@ export default function ShowConfigScreen() {
         <PageLayout className="p-6">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            <h1 className="text-2xl font-bold text-white mb-6">Show Config</h1>
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
+                <p className="mt-2 text-sm text-gray-400">{pageDescription}</p>
+            </div>
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-2 mb-6 bg-[#2d2e32] p-2 rounded-xl w-fit">
-                {TABS.map((tab) => {
+                {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
                     return (
@@ -956,6 +1113,18 @@ export default function ShowConfigScreen() {
                 isOpen={editUsersModal.open}
                 onClose={() => setEditUsersModal({ open: false, item: null })}
                 item={editUsersModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditShiftCodeModal
+                isOpen={editShiftCodeModal.open}
+                onClose={() => setEditShiftCodeModal({ open: false, item: null })}
+                item={editShiftCodeModal.item}
+                onSave={handleSaveCallback}
+            />
+            <EditMaterialTypeModal
+                isOpen={editMaterialTypeModal.open}
+                onClose={() => setEditMaterialTypeModal({ open: false, item: null })}
+                item={editMaterialTypeModal.item}
                 onSave={handleSaveCallback}
             />
         </PageLayout>

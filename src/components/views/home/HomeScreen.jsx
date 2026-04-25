@@ -1,358 +1,317 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { X, ChevronLeft, ChevronRight, ChevronDown, Monitor, Wifi, WifiOff, MapPin, Construction, Power, Pause, Truck, Gauge } from "lucide-react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  MapPin,
+  Monitor,
+  Power,
+  Truck,
+  UserRound,
+  WifiOff,
+  X,
+} from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageLayout from "../../layout/PageLayout";
-import GoogleMap from '../../utils/maps/GoogleMap';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import GoogleMap from "../../utils/maps/GoogleMap";
 import { computeBearing } from "../../../utils/mapUtils";
 import {
   GPS_PATH_DEFAULT,
   generateVehicleData,
-  STATUS_DEVICE,
   STATUS_ALAT,
+  STATUS_DEVICE,
   TOTAL_PRODUKSI,
-  KONSUMSI_BBM
+  KONSUMSI_BBM,
 } from "../../../data/vehicleData";
 import { useMqttContext } from "../../../context/MqttContext";
+import { influxService } from "../../../services/influxService";
 
-// Use the icon from assets
-const ICON_IMAGE = "/assets/Iconimage.png";
+const cn = (...classes) => classes.filter(Boolean).join(" ");
 
-/* ============================================
-   STATUS CARD (refined to match screenshot)
-   ============================================ */
-const StatusCard = React.memo(({ iconType, value, label, colorClass }) => (
-  <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-white/20 bg-transparent transition-all duration-200 hover:bg-white/5 h-full">
-    <div className="flex-shrink-0">
-      <img src={ICON_IMAGE} alt="icon" className={`w-10 h-8 object-contain ${colorClass}`} style={{ filter: colorClass === 'text-white' ? 'brightness(0) invert(1)' : colorClass === 'text-[#00FF00]' ? 'sepia(1) saturate(100) hue-rotate(90deg)' : colorClass === 'text-[#FFD700]' ? 'sepia(1) saturate(100) hue-rotate(20deg)' : 'sepia(1) saturate(100) hue-rotate(-30deg)' }} />
-    </div>
-    <div className="flex flex-col justify-center">
-      <span className={`text-2xl font-extrabold leading-none ${colorClass}`}>{value}</span>
-      <span className={`text-[20px] font-bold tracking-tight uppercase ${colorClass === 'text-white' ? 'text-white/70' : colorClass}`}>{label}</span>
-    </div>
-  </div>
-));
+const formatNumber = (value) => new Intl.NumberFormat("id-ID").format(Number(value || 0));
 
-/* ============================================
-   STATUS DEVICE PANEL
-   ============================================ */
-const StatusDevicePanel = React.memo(({ stats }) => (
-  <div className="flex-1 bg-[#232426] rounded-3xl p-4 shadow-2xl flex flex-col">
-    <div className="flex justify-center -mt-8 mb-4">
-      <span className="bg-[#00FF00] text-[#1E1F21] text-lg font-black px-8 py-1.5 rounded-2xl shadow-[0_0_15px_rgba(0,255,0,0.3)]">
-        Status Device
-      </span>
-    </div>
-    <div className="grid grid-cols-2 gap-3 flex-1">
-      <StatusCard value={stats.total} label="Total" colorClass="text-white" />
-      <StatusCard value={stats.on} label="ON" colorClass="text-[#00FF00]" />
-      <StatusCard value={stats.lossCoordinate} label="Loss Coordinate" colorClass="text-[#FFD700]" />
-      <StatusCard value={stats.off} label="OFF" colorClass="text-[#FF0000]" />
-    </div>
-  </div>
-));
+const getFuelVolume = (vehicle) => {
+  if (vehicle?.fuel?.volume_l != null) return Number(vehicle.fuel.volume_l).toFixed(1);
+  if (vehicle?.fuelVolume != null) return Number(vehicle.fuelVolume).toFixed(1);
+  if (vehicle?.fuelLevel != null) return Number(vehicle.fuelLevel).toFixed(0);
+  return "0";
+};
 
-/* ============================================
-   STATUS ALAT PANEL
-   ============================================ */
-const StatusAlatPanel = React.memo(({ stats }) => (
-  <div className="flex-1 bg-[#232426] rounded-3xl p-4 shadow-2xl flex flex-col">
-    <div className="flex justify-center -mt-8 mb-4">
-      <span className="bg-[#00FF00] text-[#1E1F21] text-lg font-black px-8 py-1.5 rounded-2xl shadow-[0_0_15px_rgba(0,255,0,0.3)]">
-        Status Alat
-      </span>
-    </div>
-    <div className="grid grid-cols-2 gap-3 flex-1">
-      <StatusCard value={stats.total} label="Total" colorClass="text-white" />
-      <StatusCard value={stats.on} label="ON" colorClass="text-[#00FF00]" />
-      <StatusCard value={stats.passive} label="Passive" colorClass="text-[#FFD700]" />
-      <StatusCard value={stats.off} label="OFF" colorClass="text-[#FF0000]" />
-    </div>
-  </div>
-));
+const statusCardBase =
+  "flex min-w-0 items-center gap-2 rounded-[16px] border border-white/80 bg-[#3a3b3f] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]";
 
-/* ============================================
-   TOTAL PRODUKSI + KONSUMSI BBM PANEL
-   ============================================ */
-const ProduksiPanel = React.memo(({ produksiItems, konsumsi }) => (
-  <div className="flex gap-4 flex-1 bg-[#E5E7EB] rounded-3xl p-4 text-[#1E1F21] relative overflow-hidden shadow-2xl">
-    {/* Top Right Icons */}
-    {/* <div className="absolute top-2 right-4 flex items-center gap-3">
-       <Truck className="w-7 h-7 text-[#00FF00] fill-current" />
-       <Gauge className="w-7 h-7 text-[#00FF00]" />
-    </div> */}
-
-    <div className="flex-1 flex flex-col gap-3">
-      <div className="flex justify-start">
-        <span className="bg-[#1E1F21] text-white text-base font-black px-6 py-1.5 rounded-xl">
-          Total produksi
-        </span>
+const StatusItem = React.memo(({ icon, value, label, accent, note }) => (
+  <div className={statusCardBase}>
+    {React.createElement(icon, {
+      className: cn("h-9 w-9 flex-shrink-0", accent),
+      strokeWidth: 2.2,
+    })}
+    <div className="min-w-0">
+      <div className={cn("text-[22px] font-black leading-none", accent)}>{value}</div>
+      <div className={cn("text-[12px] font-bold leading-none", accent === "text-white" ? "text-white" : accent)}>
+        {label}
       </div>
-      <div className="flex flex-col gap-1.5">
-        {produksiItems.map((item, idx) => {
-          let valueColor = "bg-[#00FF00]";
-          if (item.label.includes("OB")) valueColor = "bg-[#FFBC00]";
-          if (item.label.includes("LIM ORE")) valueColor = "bg-[#D92D20]";
-          
-          return (
-            <div key={idx} className="flex items-center">
-              <div className="bg-[#1E1F21] text-white text-[11px] font-bold px-4 py-1.5 rounded-l-full flex-1">
-                {item.label}
-              </div>
-              <div className={`${valueColor} text-white text-base font-black px-4 py-1 rounded-r-full min-w-[80px] text-center shadow-inner`}>
-                {item.value.toLocaleString()}
-              </div>
-            </div>
-          );
-        })}
+      {note ? <div className="mt-1 text-[11px] font-medium leading-none text-[#ffca28]">{note}</div> : null}
+    </div>
+  </div>
+));
+
+const StatusPanel = React.memo(({ title, items }) => (
+  <div className="min-w-0 flex-1 rounded-[24px] bg-[#35363a]/94 p-3 shadow-[0_18px_30px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+    <div className="mb-2 rounded-[18px] bg-[#39ff14] px-4 py-1.5 text-center text-[18px] font-black tracking-tight text-black">
+      {title}
+    </div>
+    <div className="grid grid-cols-4 gap-2">
+      {items.map((item) => (
+        <StatusItem key={item.label} {...item} />
+      ))}
+    </div>
+  </div>
+));
+
+const ProductionBadge = React.memo(({ title, value }) => (
+  <div className="w-[148px] overflow-hidden rounded-[12px] bg-[#2c493d] shadow-lg">
+    <div className="bg-[#2f3d37] px-3 py-1.5 text-[15px] font-extrabold leading-none text-white">{title}</div>
+    <div className="bg-[#30c948] px-3 py-1.5 text-center text-[16px] font-black text-[#10331a]">{value}</div>
+  </div>
+));
+
+const ProductionItem = React.memo(({ label, value, tone }) => (
+  <div className="flex min-w-[200px] flex-1 overflow-hidden rounded-full bg-[#21362c] shadow-md">
+    <div className="flex flex-1 items-center justify-center bg-[#2f3d37] px-3 py-1.5 text-center text-[13px] font-extrabold text-white">
+      {label}
+    </div>
+    <div
+      className={cn(
+        "flex min-w-[92px] items-center justify-center px-3 py-1.5 text-[13px] font-black text-white",
+        tone
+      )}
+    >
+      {formatNumber(value)}
+    </div>
+  </div>
+));
+
+const CustomChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-[#7fff3f]/40 bg-[#242529]/95 px-3 py-2 shadow-xl">
+      <div className="text-sm font-black text-[#7fff3f]">{payload[0].value} L</div>
+      <div className="text-xs text-white/70">{label}</div>
+    </div>
+  );
+};
+
+const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }) => (
+  <div className="h-[212px] min-w-0 overflow-hidden rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
+    <div className="rounded-t-[20px] bg-[#7c7c7c] px-5 py-3 text-center text-[17px] font-extrabold leading-tight text-white">
+      {title}
+    </div>
+    <div className="flex h-[156px] flex-col p-4">
+      <div className="mb-2 text-xs font-medium text-white/65">{subtitle}</div>
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 6, right: 4, left: -20, bottom: 0 }}>
+            <CartesianGrid stroke="#5b5c60" vertical={false} />
+            <XAxis dataKey={xKey} tick={{ fill: "#d4d4d8", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#d4d4d8", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomChartTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke="#7fff3f"
+              strokeWidth={2}
+              dot={{ fill: "#7fff3f", r: 2.5 }}
+              activeDot={{ fill: "#7fff3f", r: 4 }}
+              isAnimationActive={!hasAnimated}
+              animationDuration={hasAnimated ? 0 : 1500}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
+  </div>
+));
 
-    <div className="flex flex-col items-center justify-center gap-3 min-w-[130px] pl-3 border-l border-gray-300">
-      <div className="flex flex-col items-center">
-        <span className="text-sm font-black uppercase text-center leading-tight">Konsumsi<br/>BBM</span>
-        <div className="bg-[#00FF00] text-[#1E1F21] text-xl font-black px-3 py-2 rounded-xl mt-2 shadow-lg w-full text-center">
-          {konsumsi.toLocaleString()} L
+const LastTripCard = React.memo(({ tripHistory }) => (
+  <div className="h-[212px] min-w-0 overflow-hidden rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
+    <div className="rounded-t-[20px] bg-[#7c7c7c] px-5 py-3 text-center text-[17px] font-extrabold leading-tight text-white">
+      Last Trip
+    </div>
+    <div className="h-[156px] space-y-4 overflow-hidden p-5">
+      {tripHistory.slice(-4).map((trip) => (
+        <div key={trip.id} className="flex items-start gap-3">
+          <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#8CFF2A]" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[14px] font-bold text-white">{trip.location}</div>
+            <div className="text-xs text-white/70">{trip.time}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+));
+
+const DetailRow = React.memo(({ label, value, icon }) => (
+  <div className="flex items-start gap-3 border-b border-white/10 py-3 last:border-b-0">
+    {React.createElement(icon, {
+      className: "mt-0.5 h-4 w-4 flex-shrink-0 text-white/70",
+    })}
+    <div className="min-w-0">
+      <div className="text-xs uppercase tracking-[0.08em] text-white/55">{label}</div>
+      <div className="text-sm font-semibold text-white">{value}</div>
+    </div>
+  </div>
+));
+
+const VehicleInfoCard = React.memo(
+  ({
+    vehicle,
+    isExpanded,
+    onToggleExpand,
+    onClose,
+    onPrev,
+    onNext,
+    canGoPrev,
+    canGoNext,
+  }) => (
+    <div
+      className={cn(
+        "pointer-events-auto absolute bottom-4 right-4 z-20 w-[346px] overflow-hidden rounded-[22px] bg-[#3a3b3f]/70 shadow-[0_18px_38px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-300",
+        isExpanded ? "min-h-[378px]" : "h-[214px]"
+      )}
+    >
+      <div className="flex items-center justify-between bg-[#7c7c7c] px-5 py-2">
+        <div className="text-[18px] font-extrabold text-white">Cars</div>
+        <div className="flex items-center gap-1">
+          <button
+            className="rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white"
+            onClick={onToggleExpand}
+            title={isExpanded ? "Hide detail" : "Show detail"}
+          >
+            <ChevronUp className={cn("h-5 w-5 transition-transform duration-300", isExpanded ? "rotate-180" : "")} />
+          </button>
+          <button
+            className="rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white"
+            onClick={onClose}
+            title="Close vehicle panel"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
-      <div className="mt-1 text-center">
-        <span className="text-[11px] font-black uppercase tracking-tight leading-tight">Real-time<br/>harian</span>
+
+      <button
+        className={cn(
+          "absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-[#4b4c50] shadow transition",
+          canGoPrev ? "hover:scale-105 hover:bg-white" : "cursor-not-allowed opacity-40"
+        )}
+        onClick={onPrev}
+        disabled={!canGoPrev}
+        title="Previous vehicle"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
+      <button
+        className={cn(
+          "absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-[#4b4c50] shadow transition",
+          canGoNext ? "hover:scale-105 hover:bg-white" : "cursor-not-allowed opacity-40"
+        )}
+        onClick={onNext}
+        disabled={!canGoNext}
+        title="Next vehicle"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      <div className="px-10 py-4">
+        <div className="mb-3 flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[18px] font-black text-[#7fff3f]">{vehicle.name}</div>
+            <div className="mt-3 text-[24px] font-black leading-none text-white">{Math.round(vehicle.speed || 0)} KM/H</div>
+            <div className="text-sm text-white/70">Speed</div>
+          </div>
+          <img
+            src={vehicle.image}
+            alt={vehicle.name}
+            className="h-[78px] w-[98px] rounded-[14px] object-cover shadow-lg"
+            loading="lazy"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+          <div>
+            <div className="text-[20px] font-black leading-none text-white">{vehicle.distance || "0 KM"}</div>
+            <div className="text-sm text-white/70">Jarak</div>
+          </div>
+          <div>
+            <div className="text-[20px] font-black leading-none text-white">{getFuelVolume(vehicle)} L</div>
+            <div className="text-sm text-white/70">Kapasitas</div>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "overflow-hidden transition-all duration-300",
+            isExpanded ? "max-h-[320px] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0"
+          )}
+        >
+          <DetailRow label="ID Alat" value={vehicle.idFms || `FMS-${vehicle.id}`} icon={Truck} />
+          <DetailRow label="Nama Operator" value={vehicle.operatorName || "-"} icon={UserRound} />
+          <DetailRow label="ID Operator" value={vehicle.operatorId || "-"} icon={UserRound} />
+          <DetailRow label="Nomor Plat" value={vehicle.plateNumber || "-"} icon={Truck} />
+          <DetailRow label="Lokasi Terakhir" value={vehicle.lastLocation || "-"} icon={MapPin} />
+        </div>
       </div>
     </div>
-  </div>
-));
+  )
+);
 
-/* ============================================
-   VEHICLE TOOLTIP (on hover)
-   ============================================ */
 const VehicleTooltip = React.memo(({ vehicle, position }) => {
-  const cardWidth = 220;
-  const cardHeight = 100;
-  const markerAnchorY = 41;
+  const cardWidth = 184;
+  const cardHeight = 78;
+  const markerAnchorY = 34;
+
   return (
     <div
       className="fixed z-[1000] pointer-events-none"
       style={{
         left: position.x - cardWidth / 2,
-        top: position.y - cardHeight + markerAnchorY - 100,
+        top: position.y - cardHeight + markerAnchorY - 82,
         width: cardWidth,
       }}
     >
-      <div className="bg-white rounded-xl shadow-2xl overflow-hidden relative pointer-events-none">
-        <img
-          src={vehicle.image}
-          alt={vehicle.name}
-          className="w-full h-[60px] object-cover rounded-t-xl bg-gray-200 pointer-events-none"
-          loading="lazy"
-        />
-        <div className="p-3 pb-6 pointer-events-none">
-          <div className="font-bold text-black text-sm">{vehicle.name}</div>
-          <div className="text-xs text-gray-500 mb-1">No. Plat</div>
-          <span className={`absolute right-3 bottom-3 px-3 py-0.5 rounded-full ${vehicle.status === 'online' ? 'bg-[#74CD25] text-white' : 'bg-red-500 text-white'} text-white font-semibold shadow text-xs pointer-events-none`}>
+      <div className="overflow-hidden rounded-lg bg-white shadow-2xl">
+        <img src={vehicle.image} alt={vehicle.name} className="h-[44px] w-full object-cover" loading="lazy" />
+        <div className="relative p-2.5 pb-5">
+          <div className="truncate text-[13px] font-bold text-black">{vehicle.name}</div>
+          <div className="text-[11px] text-gray-500">{vehicle.plateNumber || "No. Plat"}</div>
+          <span
+            className={cn(
+              "absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shadow",
+              vehicle.status === "online" ? "bg-[#74CD25]" : "bg-red-500"
+            )}
+          >
             {vehicle.status === "online" ? "Online" : "Offline"}
           </span>
         </div>
-        <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-white pointer-events-none"></div>
+        <div className="absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-4 border-x-transparent border-t-white" />
       </div>
     </div>
   );
 });
 
-/* ============================================
-   CUSTOM CHART TOOLTIP
-   ============================================ */
-const CustomChartTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-[#2A2B2D] border border-[#74CD25] rounded-lg px-4 py-3 shadow-xl">
-        <p className="text-[#74CD25] font-bold text-lg mb-1">{payload[0].value} L</p>
-        <p className="text-gray-300 text-sm">{label}</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-/* ============================================
-   VEHICLE CHARTS (below map when selected)
-   ============================================ */
-const VehicleCharts = React.memo(({ fuelData, weeklyFuel }) => (
-  <div className="grid grid-cols-2 gap-4 mt-4">
-    <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
-      <div className="bg-[#5A5B5D] px-5 py-3">
-        <h3 className="text-lg font-bold text-white">Volume Bahan Bakar Realtime</h3>
-      </div>
-      <div className="p-5">
-        <div className="text-sm text-gray-400 mb-2">Kamis, 29/05/2025</div>
-        <div className="h-40 flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart data={fuelData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-              <XAxis dataKey="time" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} />
-              <YAxis tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} width={35} unit=" L" />
-              <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
-              <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-    <div className="rounded-xl overflow-hidden shadow-lg" style={{ backgroundColor: "#4A4B4D" }}>
-      <div className="bg-[#5A5B5D] px-5 py-3">
-        <h3 className="text-lg font-bold text-white">Konsumsi Bahan Bakar</h3>
-      </div>
-      <div className="p-5">
-        <div className="text-sm text-gray-400 mb-2">Per Minggu</div>
-        <div className="h-40 flex items-center justify-center">
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart data={weeklyFuel} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-              <XAxis dataKey="day" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} />
-              <YAxis tick={{ fill: "#aaa", fontSize: 10 }} axisLine={{ stroke: '#666' }} tickLine={{ stroke: '#666' }} width={35} unit=" L" />
-              <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: '#74CD25', strokeWidth: 1, strokeDasharray: '4 4' }} />
-              <Line type="monotone" dataKey="value" stroke="#74CD25" strokeWidth={3} dot={{ fill: "#74CD25", r: 4 }} activeDot={{ r: 6, fill: "#74CD25", stroke: "#fff", strokeWidth: 2 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  </div>
-));
-
-/* ============================================
-   DETAIL ROW
-   ============================================ */
-const DetailRow = React.memo(({ label, value, onEdit }) => (
-  <div className="flex items-center justify-between py-3 border-b border-[#5A5B5D] last:border-b-0">
-    <div>
-      <div className="text-sm font-semibold text-white">{label}</div>
-      <div className="text-xs text-gray-400">{value}</div>
-    </div>
-    {onEdit && (
-      <button className="text-sm text-[#74CD25] hover:text-[#8FE040] transition font-medium" onClick={onEdit}>
-        Edit
-      </button>
-    )}
-  </div>
-));
-
-/* ============================================
-   VEHICLE SIDEBAR CARD (right side when selected)
-   ============================================ */
-const VehicleSidebarCard = React.memo(({ vehicle, onClose, isExpanded, onToggleExpand, onPrev, onNext, canGoPrev, canGoNext }) => (
-  <div className="rounded-xl shadow-lg overflow-visible bg-[#4A4B4D] relative">
-    <div className="bg-[#5A5B5D] px-5 py-3 flex items-center justify-between rounded-t-xl">
-      <h3 className="text-lg font-bold text-white">Cars</h3>
-      <button
-        className="w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all hover:scale-110 shadow-lg"
-        onClick={onClose}
-        title="Close"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-    <div className="p-5">
-      <button
-        className={`absolute -left-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 z-10 ${canGoPrev
-          ? 'bg-gradient-to-r from-[#74CD25] to-[#5fa01c] text-white hover:shadow-[0_0_15px_rgba(116,205,37,0.5)] hover:scale-110 cursor-pointer'
-          : 'bg-[#343538] text-gray-600 cursor-not-allowed opacity-50'
-          }`}
-        onClick={onPrev}
-        disabled={!canGoPrev}
-        title="Previous Vehicle"
-      >
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <button
-        className={`absolute -right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 z-10 ${canGoNext
-          ? 'bg-gradient-to-r from-[#74CD25] to-[#5fa01c] text-white hover:shadow-[0_0_15px_rgba(116,205,37,0.5)] hover:scale-110 cursor-pointer'
-          : 'bg-[#343538] text-gray-600 cursor-not-allowed opacity-50'
-          }`}
-        onClick={onNext}
-        disabled={!canGoNext}
-        title="Next Vehicle"
-      >
-        <ChevronRight className="w-5 h-5" />
-      </button>
-
-      <div className="flex items-start justify-between">
-        <div className="flex-1 pr-4">
-          <div className="text-xl font-bold text-[#74CD25] mb-3">{vehicle.name}</div>
-          <div className="text-lg font-bold text-white mb-1">{Math.round(vehicle.speed || 0)} KM/H</div>
-          <div className="text-xs text-gray-400 mb-3">Speed</div>
-          <div className="text-lg font-bold text-white mb-1">{vehicle.fuelLevel || 0}%</div>
-          <div className="text-xs text-gray-400 mb-3">Fuel Level</div>
-          <div className="text-lg font-bold text-white mb-1">{vehicle.fuel && vehicle.fuel.volume_l ? vehicle.fuel.volume_l.toFixed(1) : 0} L</div>
-          <div className="text-xs text-gray-400">Fuel Volume</div>
-        </div>
-        <div className="relative">
-          <img src={vehicle.image} alt={vehicle.name} className="w-28 h-24 object-cover rounded-lg shadow-md" loading="lazy" />
-        </div>
-      </div>
-
-      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-        <div className="border-t border-[#5A5B5D] pt-4">
-          <DetailRow label="Nama Operator" value={vehicle.operatorName || "Pak Gun"} />
-          <DetailRow label="ID Operator" value={vehicle.operatorId || "XXXXXX-1"} />
-          <DetailRow label="Jabatan" value={vehicle.jabatan || "Lorem Ipsum"} />
-          <DetailRow label="Divisi" value={vehicle.divisi || "Lorem Ipsum"} />
-          <DetailRow label="Nomor Plat" value={vehicle.plateNumber || "Lorem Ipsum"} />
-        </div>
-      </div>
-
-      <div className="flex justify-center mt-4">
-        <button
-          className="w-10 h-10 rounded-full bg-[#343538] text-[#74CD25] hover:bg-[#5A5B5D] transition flex items-center justify-center shadow"
-          onClick={onToggleExpand}
-          title={isExpanded ? "Tutup Detail" : "Lihat Detail"}
-        >
-          <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-    </div>
-  </div>
-));
-
-/* ============================================
-   TRIP HISTORY CARD
-   ============================================ */
-const TripHistoryCard = React.memo(({ tripHistory, isDetailExpanded }) => {
-  // Show 8 items when collapsed, only last 1 when expanded
-  const visibleTrips = isDetailExpanded
-    ? tripHistory.slice(-1)
-    : tripHistory.slice(-8);
-
-  return (
-    <div className="rounded-xl shadow-lg overflow-hidden bg-[#4A4B4D]">
-      <div className="bg-[#5A5B5D] px-5 py-3">
-        <h3 className="text-lg font-bold text-white">Last Trip</h3>
-      </div>
-      <div className="p-5">
-        <div className="space-y-3 overflow-y-auto pr-1">
-          {visibleTrips.map((trip, idx) => (
-            <div key={trip.id + idx} className="flex items-center gap-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#74CD25] flex-shrink-0"></div>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-white">{trip.location}</div>
-                <div className="text-xs text-gray-400">{trip.time}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-});
-
-/* ============================================
-   MAIN HOME SCREEN
-   ============================================ */
 const HomeScreen = () => {
   const gpsPath = useMemo(() => GPS_PATH_DEFAULT, []);
 
   const lastGps = gpsPath[gpsPath.length - 1];
   const prevGps = gpsPath[gpsPath.length - 2] || lastGps;
-  const computedHeading = useMemo(() =>
-    Math.round(computeBearing(prevGps[0], prevGps[1], lastGps[0], lastGps[1])),
+  const computedHeading = useMemo(
+    () => Math.round(computeBearing(prevGps[0], prevGps[1], lastGps[0], lastGps[1])),
     [prevGps, lastGps]
   );
 
@@ -362,37 +321,94 @@ const HomeScreen = () => {
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
 
   const { vehicles: liveVehicles } = useMqttContext();
+  const [influxSummary, setInfluxSummary] = useState(null);
+  const [influxVehicles, setInfluxVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    if (!loading && influxVehicles.length > 0 && !hasAnimated) {
+      const timer = setTimeout(() => setHasAnimated(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, influxVehicles.length > 0, hasAnimated]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const [summaryRes, vehiclesRes] = await Promise.all([
+        influxService.getSummary(),
+        influxService.getVehicles()
+      ]);
+      setInfluxSummary(summaryRes.data);
+      setInfluxVehicles(vehiclesRes.data);
+    } catch (error) {
+      console.error("Error fetching influx data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 10000); // refresh every 10s for more "live" feel
+    return () => clearInterval(interval);
+  }, [fetchDashboardData]);
 
   const vehicleData = useMemo(() => {
     const dummy = generateVehicleData(lastGps, computedHeading, gpsPath);
-    const result = [...dummy];
+    // Use influx vehicles as the ONLY source of truth for the dashboard list/map
+    const baseVehicles = influxVehicles.length > 0 
+      ? influxVehicles.map(v => ({ ...dummy[0], ...v })) 
+      : [...dummy];
 
-    liveVehicles.forEach(live => {
-      const index = result.findIndex(d =>
-        String(d.id).toLowerCase() === String(live.id).toLowerCase() ||
-        String(d.plateNumber).toLowerCase() === String(live.plateNumber).toLowerCase()
-      );
+    return baseVehicles;
+  }, [influxVehicles, lastGps, computedHeading, gpsPath]);
 
-      if (index !== -1) {
-        result[index] = { ...result[index], ...live };
-      } else {
-        result.push({ ...live, image: live.image || dummy[0].image });
-      }
-    });
+  // Fetch fuel charts when a vehicle is selected
+  useEffect(() => {
+    if (selectedVehicle) {
+      const fetchFuelData = async () => {
+        try {
+          const [realtimeRes, weeklyRes] = await Promise.all([
+            influxService.getFuelRealtime(selectedVehicle.id),
+            influxService.getFuelWeekly(selectedVehicle.id)
+          ]);
+          
+          // Update the selected vehicle in the list with new fuel data
+          setInfluxVehicles(prev => prev.map(v => 
+            v.id === selectedVehicle.id 
+              ? { ...v, fuelData: realtimeRes.data, weeklyFuel: weeklyRes.data }
+              : v
+          ));
+        } catch (error) {
+          console.error("Error fetching fuel charts:", error);
+        }
+      };
+      fetchFuelData();
+    }
+  }, [selectedVehicle?.id]);
+  const currentVehicle = useMemo(() => {
+    if (!selectedVehicle) return null;
+    return vehicleData.find((v) => v.id === selectedVehicle.id) || selectedVehicle;
+  }, [selectedVehicle, vehicleData]);
 
-    return result;
-  }, [liveVehicles, lastGps, computedHeading, gpsPath]);
-
-  const tripHistory = useMemo(() => gpsPath.map((point, idx) => ({
-    id: idx + 1,
-    location: `Lat: ${point[0].toFixed(6)}, Lng: ${point[1].toFixed(6)}`,
-    time: `Titik #${idx + 1}`,
-    status: "completed",
-  })), [gpsPath]);
+  const tripHistory = useMemo(
+    () =>
+      gpsPath.map((point, idx) => ({
+        id: idx + 1,
+        location: `Lat: ${point[0].toFixed(5)}, Lng: ${point[1].toFixed(5)}`,
+        time: `Titik #${idx + 1}`,
+      })),
+    [gpsPath]
+  );
 
   const handleVehicleClick = useCallback((vehicle) => {
-    setSelectedVehicle(prev => {
-      if (prev && prev.id === vehicle.id) return null;
+    setSelectedVehicle((prev) => {
+      if (prev?.id === vehicle.id) {
+        setIsDetailExpanded(false);
+        return null;
+      }
+
       setIsDetailExpanded(false);
       return vehicle;
     });
@@ -413,12 +429,12 @@ const HomeScreen = () => {
   }, []);
 
   const handleToggleExpand = useCallback(() => {
-    setIsDetailExpanded(prev => !prev);
+    setIsDetailExpanded((prev) => !prev);
   }, []);
 
   const currentVehicleIndex = useMemo(() => {
     if (!selectedVehicle) return -1;
-    return vehicleData.findIndex(v => v.id === selectedVehicle.id);
+    return vehicleData.findIndex((vehicle) => vehicle.id === selectedVehicle.id);
   }, [selectedVehicle, vehicleData]);
 
   const handlePrevVehicle = useCallback(() => {
@@ -429,72 +445,135 @@ const HomeScreen = () => {
   }, [currentVehicleIndex, vehicleData]);
 
   const handleNextVehicle = useCallback(() => {
-    if (currentVehicleIndex < vehicleData.length - 1) {
+    if (currentVehicleIndex >= 0 && currentVehicleIndex < vehicleData.length - 1) {
       setSelectedVehicle(vehicleData[currentVehicleIndex + 1]);
       setIsDetailExpanded(false);
     }
   }, [currentVehicleIndex, vehicleData]);
 
   const canGoPrev = currentVehicleIndex > 0;
-  const canGoNext = currentVehicleIndex < vehicleData.length - 1 && currentVehicleIndex >= 0;
+  const canGoNext = currentVehicleIndex >= 0 && currentVehicleIndex < vehicleData.length - 1;
+
+  const deviceItems = useMemo(
+    () => [
+      { icon: Monitor, value: influxSummary?.status_device?.total || STATUS_DEVICE.total, label: "Total", accent: "text-white" },
+      { icon: Power, value: influxSummary?.status_device?.on || STATUS_DEVICE.on, label: "ON", accent: "text-[#39ff14]" },
+      {
+        icon: AlertTriangle,
+        value: influxSummary?.status_device?.lossCoordinate || STATUS_DEVICE.lossCoordinate,
+        label: "Loss Coordinate",
+        accent: "text-[#ffc107]",
+      },
+      { icon: WifiOff, value: influxSummary?.status_device?.off || STATUS_DEVICE.off, label: "OFF", accent: "text-[#ff3131]" },
+    ],
+    [influxSummary]
+  );
+
+  const equipmentItems = useMemo(
+    () => [
+      { icon: Truck, value: influxSummary?.status_alat?.passive || STATUS_ALAT.passive, label: "Passive", accent: "text-[#ffc107]" },
+      { icon: Truck, value: influxSummary?.status_alat?.off || STATUS_ALAT.off, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Truck, value: influxSummary?.status_alat?.total || STATUS_ALAT.total, label: "Total", accent: "text-white" },
+      { icon: Truck, value: influxSummary?.status_alat?.on || STATUS_ALAT.on, label: "ON", accent: "text-[#39ff14]" },
+    ],
+    [influxSummary]
+  );
+
+  const produksiItems = useMemo(
+    () => {
+      const base = (influxSummary?.produksi_items && influxSummary.produksi_items.length > 0) ? influxSummary.produksi_items : TOTAL_PRODUKSI;
+      return base.map((item) => ({
+        ...item,
+        tone: item.label.includes("OB")
+          ? "bg-[#f5b40d]"
+          : item.label.includes("SAP")
+            ? "bg-[#30c948]"
+            : "bg-[#dc1a23]",
+      }));
+    },
+    [influxSummary]
+  );
+
+  const bottomCardsPadding = selectedVehicle ? "pr-[360px]" : "";
 
   return (
     <PageLayout className="p-6">
-      {/* ========== NEW: Status Panels Header ========== */}
-      <div className="flex gap-4 mb-6 items-stretch">
-        <StatusDevicePanel stats={STATUS_DEVICE} />
-        <StatusAlatPanel stats={STATUS_ALAT} />
-        <ProduksiPanel produksiItems={TOTAL_PRODUKSI} konsumsi={KONSUMSI_BBM} />
-      </div>
-
-      {/* ========== ORIGINAL: Map + Sidebar Layout ========== */}
-      <div className="flex gap-6 items-stretch">
-        <div className="flex-1">
-          {/* Map */}
-          <div
-            className="rounded-[30px] p-6 mb-4"
-            style={{ backgroundColor: "#232426" }}
-          >
-            <div className={selectedVehicle ? "h-[500px] rounded-[20px] overflow-hidden transition-all duration-500" : "h-[600px] rounded-[20px] overflow-hidden transition-all duration-500 w-full"}>
-              <GoogleMap
-                vehicles={vehicleData}
-                selectedVehicle={selectedVehicle}
-                onVehicleClick={handleVehicleClick}
-                onVehicleHover={handleVehicleHover}
-                onVehicleLeave={handleVehicleLeave}
-              />
-            </div>
-            {selectedVehicle && (
-              <VehicleCharts
-                fuelData={selectedVehicle.fuelData}
-                weeklyFuel={selectedVehicle.weeklyFuel}
-              />
-            )}
+      {/* <div className="rounded-[34px] bg-[#e8f1f6] p-2 shadow-[0_16px_42px_rgba(0,0,0,0.18)]"> */}
+        <div className="relative h-[calc(100vh-100px)] min-h-[640px] max-h-[780px] overflow-hidden rounded-[28px] border-[4px] border-white/90 bg-[#b9dced]">
+          <div className="absolute inset-0">
+            <GoogleMap
+              vehicles={vehicleData}
+              selectedVehicle={selectedVehicle}
+              onVehicleClick={handleVehicleClick}
+              onVehicleHover={handleVehicleHover}
+              onVehicleLeave={handleVehicleLeave}
+            />
           </div>
-        </div>
 
-        {/* Sidebar */}
-        {selectedVehicle && (
-          <div key={selectedVehicle.id} className="w-80 flex flex-col gap-4 animate-fade-in-right relative">
-            <VehicleSidebarCard
-              vehicle={selectedVehicle}
-              onClose={handleCloseVehicle}
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02)_22%,rgba(255,255,255,0.12)_100%)]" />
+
+          <div className="pointer-events-none relative z-10 flex h-full flex-col p-4">
+            <div className="pointer-events-auto">
+              <div className="flex gap-3">
+                <StatusPanel title="DEVICE STATUS" items={deviceItems} />
+                <StatusPanel title="EQUIPMENT STATUS" items={equipmentItems} />
+              </div>
+
+              <div className="mt-2 flex items-start gap-4">
+                <div className="flex flex-col gap-2">
+                  <ProductionBadge title="Total Produksi" value={influxSummary?.total_produksi || "0"} />
+                  <ProductionBadge title="Konsumsi BBM" value={`${formatNumber(influxSummary?.konsumsi_bbm || 0)} L`} />
+                </div>
+
+                <div className="flex flex-1 flex-wrap gap-3 pt-1">
+                  {produksiItems.map((item) => (
+                    <ProductionItem key={item.label} label={item.label} value={item.value} tone={item.tone} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1" />
+
+            {currentVehicle ? (
+              <div className={cn("pointer-events-none transition-all duration-300", bottomCardsPadding)}>
+                <div className="grid grid-cols-3 gap-4">
+                  <BottomChartCard
+                    title="Volume Bahan Bakar Realtime"
+                    subtitle="Liter (L)"
+                    data={currentVehicle.fuelData || []}
+                    xKey="time"
+                    hasAnimated={hasAnimated}
+                  />
+                  <BottomChartCard
+                    title="Konsumsi Bahan Bakar"
+                    subtitle="Liter (L)"
+                    data={currentVehicle.weeklyFuel || []}
+                    xKey="day"
+                    hasAnimated={hasAnimated}
+                  />
+                  <LastTripCard tripHistory={tripHistory} />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {currentVehicle ? (
+            <VehicleInfoCard
+              vehicle={currentVehicle}
               isExpanded={isDetailExpanded}
               onToggleExpand={handleToggleExpand}
+              onClose={handleCloseVehicle}
               onPrev={handlePrevVehicle}
               onNext={handleNextVehicle}
               canGoPrev={canGoPrev}
               canGoNext={canGoNext}
             />
-            <TripHistoryCard tripHistory={tripHistory} isDetailExpanded={isDetailExpanded} />
-          </div>
-        )}
-      </div>
+          ) : null}
+        </div>
+      {/* </div> */}
 
-      {/* Tooltip */}
-      {hoveredVehicle && (
-        <VehicleTooltip vehicle={hoveredVehicle} position={hoverPosition} />
-      )}
+      {hoveredVehicle ? <VehicleTooltip vehicle={hoveredVehicle} position={hoverPosition} /> : null}
     </PageLayout>
   );
 };
