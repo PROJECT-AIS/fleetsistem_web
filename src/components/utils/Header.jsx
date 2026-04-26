@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/authContextValue";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-
-// Backend URL for images
-const BACKEND_URL = "http://localhost:6969";
+import { resolveBackendUrl } from "../../config/apiConfig";
 
 // Generate initials from name
 const getInitials = (name) => {
@@ -29,7 +27,7 @@ const SmallAvatar = ({ src, name, onClick }) => {
     >
       {src ? (
         <img
-          src={src.startsWith('http') ? src : `${BACKEND_URL}${src}`}
+          src={resolveBackendUrl(src)}
           alt={name}
           className="w-full h-full object-cover"
         />

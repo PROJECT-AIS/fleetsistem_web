@@ -393,7 +393,7 @@ const HomeScreen = () => {
     };
 
     fetchFuelData();
-    const interval = setInterval(fetchFuelData, 300000); // Poll fuel every 5 minutes
+    const interval = setInterval(fetchFuelData, 60000); // Poll fuel every 1 minute
     return () => clearInterval(interval);
   }, [selectedVehicle?.id]);
 

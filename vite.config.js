@@ -26,7 +26,16 @@ export default defineConfig({
   },
   server: {
     host: true,
+    allowedHosts: ['fms.devraffi.my.id'],
     proxy: {
+      '/api': {
+        target: 'http://localhost:6969',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:6969',
+        changeOrigin: true,
+      },
       '/google-tiles': {
         target: 'https://maps.googleapis.com',
         changeOrigin: true,

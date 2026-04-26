@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import PageLayout from "../../layout/PageLayout";
 import { AuthContext } from "../../../context/authContextValue";
 import api from "../../../services/api";
-
-// Backend URL for images
-const BACKEND_URL = "http://localhost:6969";
+import { resolveBackendUrl } from "../../../config/apiConfig";
 
 // Generate initials from name
 const getInitials = (name) => {
@@ -34,7 +32,7 @@ const Avatar = ({ src, name, size = "large", onClick, showCamera = false }) => {
     >
       {src ? (
         <img
-          src={src.startsWith('http') ? src : `${BACKEND_URL}${src}`}
+          src={resolveBackendUrl(src)}
           alt={name}
           className="w-full h-full object-cover"
         />

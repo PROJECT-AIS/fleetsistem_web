@@ -4,6 +4,7 @@ import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
 import mqtt from 'mqtt';
+import { resolveBackendUrl } from "../../../config/apiConfig";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
 const MQTT_BROKER_URL = 'wss://mqtt.aispektra.com:443';
@@ -220,7 +221,7 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
                 status: item.status || "Aktif",
                 gambar: null
             });
-            setPreviewImage(item.gambar ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${item.gambar}` : null);
+            setPreviewImage(item.gambar ? resolveBackendUrl(item.gambar) : null);
         }
     }, [item]);
 
@@ -611,7 +612,7 @@ const EditUsersModal = ({ isOpen, onClose, item, onSave }) => {
                 noTelp: item.noTelp || "",
                 fotoProfil: null
             });
-            setPreviewImage(item.fotoProfil ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${item.fotoProfil}` : null);
+            setPreviewImage(item.fotoProfil ? resolveBackendUrl(item.fotoProfil) : null);
         }
     }, [item]);
 
