@@ -29,11 +29,11 @@ export default defineConfig({
     allowedHosts: ['fms.devraffi.my.id'],
     proxy: {
       '/api': {
-        target: 'http://localhost:6969',
+        target: 'https://backendfms.devraffi.my.id',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:6969',
+        target: 'https://backendfms.devraffi.my.id',
         changeOrigin: true,
       },
       '/google-tiles': {
