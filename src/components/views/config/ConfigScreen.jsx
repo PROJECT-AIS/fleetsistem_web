@@ -3,12 +3,10 @@ import { Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, Eye, EyeOf
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
-import mqtt from 'mqtt';
 import { Link } from "react-router-dom";
+import { MQTT_ACTIONS, publishMqttActions } from "../../../utils/mqttActions";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
-const MQTT_BROKER_URL = 'wss://mqtt.aispektra.com:443';
-const MQTT_TOPIC = 'fms/+/data';
 
 // Main Tab data
 const TABS = [
@@ -421,30 +419,6 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-    // Function to publish MQTT message
-    const publishMqttMessage = () => {
-        const client = mqtt.connect(MQTT_BROKER_URL);
-
-        client.on('connect', () => {
-            const message = JSON.stringify({
-                action: 'sync_geo'
-            });
-            client.publish(MQTT_TOPIC, message, { qos: 1 }, (err) => {
-                if (err) {
-                    console.error('MQTT publish error:', err);
-                } else {
-                    console.log('MQTT message published to', MQTT_TOPIC);
-                }
-                client.end();
-            });
-        });
-
-        client.on('error', (err) => {
-            console.error('MQTT connection error:', err);
-            client.end();
-        });
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -472,11 +446,10 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
         setLoading(true);
         try {
             await lokasiService.create(form);
+            publishMqttActions(MQTT_ACTIONS.geoCreate).catch((error) => {
+                console.error("MQTT publish error:", error);
+            });
             showToast("Data lokasi berhasil disimpan", "success");
-
-            // Publish to MQTT after successful save
-            publishMqttMessage();
-
             setForm({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
             onSaved?.();
         } catch (error) {
@@ -672,6 +645,9 @@ const InputMaterialType = ({ showToast, rows, onSaved, manageHref = "/parameter/
         setLoading(true);
         try {
             await materialTypeService.create(form);
+            publishMqttActions(MQTT_ACTIONS.materialCreate).catch((error) => {
+                console.error("MQTT publish error:", error);
+            });
             showToast("Material type berhasil disimpan", "success");
             setForm({ jenisMuatan: "" });
             onSaved?.();

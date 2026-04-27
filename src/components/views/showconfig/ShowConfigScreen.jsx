@@ -3,12 +3,10 @@ import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, C
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
-import mqtt from 'mqtt';
 import { resolveBackendUrl } from "../../../config/apiConfig";
+import { MQTT_ACTIONS, publishMqttActions } from "../../../utils/mqttActions";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
-const MQTT_BROKER_URL = 'wss://mqtt.aispektra.com:443';
-const MQTT_TOPIC = 'fms/#/data';
 
 // Tab configuration
 const TABS = [
@@ -149,6 +147,9 @@ const EditMaterialTypeModal = ({ isOpen, onClose, item, onSave }) => {
         setLoading(true);
         try {
             await materialTypeService.update(item.id, form);
+            publishMqttActions(MQTT_ACTIONS.materialEdit).catch((error) => {
+                console.error("MQTT publish error:", error);
+            });
             onSave("Material type berhasil diupdate");
             onClose();
         } catch (error) {
@@ -404,15 +405,6 @@ const EditLokasiModal = ({ isOpen, onClose, item, onSave }) => {
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-    const publishMqttMessage = () => {
-        const client = mqtt.connect(MQTT_BROKER_URL);
-        client.on('connect', () => {
-            const message = JSON.stringify({ action: 'sync_geo_edit' });
-            client.publish(MQTT_TOPIC, message, { qos: 1 }, () => client.end());
-        });
-        client.on('error', () => client.end());
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -440,7 +432,9 @@ const EditLokasiModal = ({ isOpen, onClose, item, onSave }) => {
         setLoading(true);
         try {
             await lokasiService.update(item.id, form);
-            publishMqttMessage();
+            publishMqttActions(MQTT_ACTIONS.geoEdit).catch((error) => {
+                console.error("MQTT publish error:", error);
+            });
             onSave("Data lokasi berhasil diupdate");
             onClose();
         } catch (error) {
@@ -986,26 +980,24 @@ export default function ShowConfigScreen({
         setDeleteModal({ open: true, item, type: activeTab, name: nameField });
     };
 
-    const publishMqttDelete = () => {
-        const client = mqtt.connect(MQTT_BROKER_URL);
-        client.on('connect', () => {
-            const message = JSON.stringify({ action: 'sync_geo_hapus' });
-            client.publish(MQTT_TOPIC, message, { qos: 1 }, () => client.end());
-        });
-        client.on('error', () => client.end());
-    };
-
     const confirmDelete = async () => {
         const { item, type } = deleteModal;
         try {
             switch (type) {
                 case "shift-code": await shiftCodeService.delete(item.id); break;
-                case "material-type": await materialTypeService.delete(item.id); break;
+                case "material-type":
+                    await materialTypeService.delete(item.id);
+                    publishMqttActions(MQTT_ACTIONS.materialDelete).catch((error) => {
+                        console.error("MQTT publish error:", error);
+                    });
+                    break;
                 case "alat": await alatService.delete(item.id); break;
                 case "operator": await operatorService.delete(item.id); break;
                 case "lokasi":
                     await lokasiService.delete(item.id);
-                    publishMqttDelete();
+                    publishMqttActions(MQTT_ACTIONS.geoDelete).catch((error) => {
+                        console.error("MQTT publish error:", error);
+                    });
                     break;
                 case "kalibrasi": await kalibrasiService.delete(item.id); break;
                 case "users": await pengawasService.delete(item.id); break;
