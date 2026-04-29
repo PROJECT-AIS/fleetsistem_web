@@ -8,6 +8,7 @@ import {
   MapPin,
   Monitor,
   Power,
+  Search,
   Truck,
   UserRound,
   WifiOff,
@@ -101,6 +102,101 @@ const CustomChartTooltip = ({ active, payload, label }) => {
     </div>
   );
 };
+
+const VehicleSearchPanel = React.memo(
+  ({
+    searchTerm,
+    onSearchChange,
+    onClear,
+    onKeyDown,
+    results,
+    onSelectVehicle,
+    selectedVehicleId,
+  }) => {
+    const showResults = searchTerm.trim().length > 0;
+    const visibleResults = results.slice(0, 6);
+
+    return (
+      <div className="w-full max-w-[360px]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
+          <input
+            type="text"
+            placeholder="Cari kendaraan berdasarkan vehicle_id..."
+            className="w-full rounded-[18px] border border-white/15 bg-[#2f3134]/92 py-3 pl-10 pr-11 text-sm font-medium text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] outline-none transition focus:border-[#7fff3f] focus:ring-2 focus:ring-[#7fff3f]/20"
+            value={searchTerm}
+            onChange={(event) => onSearchChange(event.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          {searchTerm ? (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 rounded-full p-1.5 text-white/65 transition hover:bg-white/10 hover:text-white"
+              onClick={onClear}
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+
+        {showResults ? (
+          <div className="mt-2 overflow-hidden rounded-[20px] border border-white/12 bg-[#2f3134]/95 shadow-[0_18px_32px_rgba(0,0,0,0.24)] backdrop-blur-sm">
+            <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">
+              <span>Hasil Pencarian</span>
+              <span>{results.length} kendaraan</span>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto">
+              {visibleResults.length > 0 ? (
+                visibleResults.map((vehicle) => {
+                  const isSelected = selectedVehicleId === vehicle.id;
+
+                  return (
+                    <button
+                      key={vehicle.id}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-left transition",
+                        isSelected ? "bg-[#7fff3f]/18" : "hover:bg-white/8"
+                      )}
+                      onClick={() => onSelectVehicle(vehicle)}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-bold text-white">{vehicle.id}</div>
+                        <div className="mt-1 text-xs text-white/55">{vehicle.idFms || "No device ID"}</div>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em]",
+                          vehicle.status === "online"
+                            ? "bg-[#39ff14]/20 text-[#8CFF2A]"
+                            : "bg-red-500/20 text-red-200"
+                        )}
+                      >
+                        {vehicle.status}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="border-t border-white/8 px-4 py-5 text-sm text-white/60">
+                  Kendaraan dengan vehicle_id tersebut belum ditemukan.
+                </div>
+              )}
+            </div>
+
+            {results.length > visibleResults.length ? (
+              <div className="border-t border-white/8 px-4 py-2 text-xs text-white/45">
+                Menampilkan {visibleResults.length} hasil teratas.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+);
 
 const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }) => (
   <div className="h-[212px] min-w-0 rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
@@ -309,6 +405,7 @@ const HomeScreen = () => {
   const [hoveredVehicle, setHoveredVehicle] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const [isDetailExpanded, setIsDetailExpanded] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState("");
 
   const [influxSummary, setInfluxSummary] = useState(null);
   const [influxVehicles, setInfluxVehicles] = useState([]);
@@ -366,6 +463,16 @@ const HomeScreen = () => {
     }));
   }, [influxVehicles]);
 
+  const normalizedVehicleSearch = vehicleSearch.trim().toLowerCase();
+
+  const filteredVehicleData = useMemo(() => {
+    if (!normalizedVehicleSearch) return vehicleData;
+
+    return vehicleData.filter((vehicle) =>
+      String(vehicle.id || "").toLowerCase().includes(normalizedVehicleSearch)
+    );
+  }, [vehicleData, normalizedVehicleSearch]);
+
   // Fetch fuel charts when a vehicle is selected and keep it updated
   useEffect(() => {
     if (!selectedVehicle?.id) return;
@@ -399,8 +506,10 @@ const HomeScreen = () => {
 
   const currentVehicle = useMemo(() => {
     if (!selectedVehicle) return null;
-    return vehicleData.find((v) => v.id === selectedVehicle.id) || selectedVehicle;
-  }, [selectedVehicle, vehicleData]);
+    return filteredVehicleData.find((v) => v.id === selectedVehicle.id)
+      || vehicleData.find((v) => v.id === selectedVehicle.id)
+      || selectedVehicle;
+  }, [selectedVehicle, filteredVehicleData, vehicleData]);
 
   const tripHistory = useMemo(
     () =>
@@ -424,6 +533,12 @@ const HomeScreen = () => {
     });
   }, []);
 
+  const handleVehicleSearchSelect = useCallback((vehicle) => {
+    setSelectedVehicle(vehicle);
+    setHoveredVehicle(null);
+    setIsDetailExpanded(false);
+  }, []);
+
   const handleVehicleHover = useCallback((vehicle, position) => {
     setHoveredVehicle(vehicle);
     setHoverPosition(position);
@@ -444,25 +559,55 @@ const HomeScreen = () => {
 
   const currentVehicleIndex = useMemo(() => {
     if (!selectedVehicle) return -1;
-    return vehicleData.findIndex((vehicle) => vehicle.id === selectedVehicle.id);
-  }, [selectedVehicle, vehicleData]);
+    return filteredVehicleData.findIndex((vehicle) => vehicle.id === selectedVehicle.id);
+  }, [selectedVehicle, filteredVehicleData]);
 
   const handlePrevVehicle = useCallback(() => {
     if (currentVehicleIndex > 0) {
-      setSelectedVehicle(vehicleData[currentVehicleIndex - 1]);
+      setSelectedVehicle(filteredVehicleData[currentVehicleIndex - 1]);
       setIsDetailExpanded(false);
     }
-  }, [currentVehicleIndex, vehicleData]);
+  }, [currentVehicleIndex, filteredVehicleData]);
 
   const handleNextVehicle = useCallback(() => {
-    if (currentVehicleIndex >= 0 && currentVehicleIndex < vehicleData.length - 1) {
-      setSelectedVehicle(vehicleData[currentVehicleIndex + 1]);
+    if (currentVehicleIndex >= 0 && currentVehicleIndex < filteredVehicleData.length - 1) {
+      setSelectedVehicle(filteredVehicleData[currentVehicleIndex + 1]);
       setIsDetailExpanded(false);
     }
-  }, [currentVehicleIndex, vehicleData]);
+  }, [currentVehicleIndex, filteredVehicleData]);
+
+  const handleSearchKeyDown = useCallback((event) => {
+    if (event.key === "Escape") {
+      setVehicleSearch("");
+      return;
+    }
+
+    if (event.key === "Enter" && filteredVehicleData.length > 0) {
+      handleVehicleSearchSelect(filteredVehicleData[0]);
+    }
+  }, [filteredVehicleData, handleVehicleSearchSelect]);
+
+  useEffect(() => {
+    if (!selectedVehicle) return;
+
+    const selectedStillVisible = filteredVehicleData.some((vehicle) => vehicle.id === selectedVehicle.id);
+    if (!selectedStillVisible) {
+      setSelectedVehicle(null);
+      setIsDetailExpanded(false);
+    }
+  }, [filteredVehicleData, selectedVehicle]);
+
+  useEffect(() => {
+    if (!hoveredVehicle) return;
+
+    const hoveredStillVisible = filteredVehicleData.some((vehicle) => vehicle.id === hoveredVehicle.id);
+    if (!hoveredStillVisible) {
+      setHoveredVehicle(null);
+    }
+  }, [filteredVehicleData, hoveredVehicle]);
 
   const canGoPrev = currentVehicleIndex > 0;
-  const canGoNext = currentVehicleIndex >= 0 && currentVehicleIndex < vehicleData.length - 1;
+  const canGoNext = currentVehicleIndex >= 0 && currentVehicleIndex < filteredVehicleData.length - 1;
 
   const deviceItems = useMemo(
     () => [
@@ -512,7 +657,7 @@ const HomeScreen = () => {
         <div className="relative h-[calc(100vh-100px)] min-h-[640px] max-h-[780px] overflow-hidden rounded-[28px] border-[4px] border-white/90 bg-[#b9dced]">
           <div className="absolute inset-0">
             <GoogleMap
-              vehicles={vehicleData}
+              vehicles={filteredVehicleData}
               selectedVehicle={selectedVehicle}
               onVehicleClick={handleVehicleClick}
               onVehicleHover={handleVehicleHover}
@@ -535,10 +680,24 @@ const HomeScreen = () => {
                   <ProductionBadge title="Konsumsi BBM" value={`${formatNumber(influxSummary?.konsumsi_bbm || 0)} L`} />
                 </div>
 
-                <div className="flex flex-1 flex-wrap gap-3 pt-1">
-                  {produksiItems.map((item) => (
-                    <ProductionItem key={item.label} label={item.label} value={item.value} tone={item.tone} />
-                  ))}
+                <div className="min-w-0 flex flex-1 flex-col gap-1 pt-1">
+                  <div className="flex flex-wrap gap-3">
+                    {produksiItems.map((item) => (
+                      <ProductionItem key={item.label} label={item.label} value={item.value} tone={item.tone} />
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <VehicleSearchPanel
+                      searchTerm={vehicleSearch}
+                      onSearchChange={setVehicleSearch}
+                      onClear={() => setVehicleSearch("")}
+                      onKeyDown={handleSearchKeyDown}
+                      results={filteredVehicleData}
+                      onSelectVehicle={handleVehicleSearchSelect}
+                      selectedVehicleId={selectedVehicle?.id}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
