@@ -12,6 +12,7 @@ import {
   Settings2,
   SlidersHorizontal,
   Users,
+  Map,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -49,7 +50,16 @@ const NAV_ITEMS = [
       { path: '/parameter/view', icon: Eye, label: 'View Parameter' },
     ],
   },
-  { type: 'link', path: '/history', icon: Clock, label: 'Data Log' },
+  {
+    type: 'group',
+    id: 'datalog',
+    icon: Clock,
+    label: 'Data',
+    children: [
+      { path: '/history', icon: Database, label: 'Data Log' },
+      { path: '/data-trip', icon: Map, label: 'Data Trip' },
+    ],
+  },
   { type: 'link', path: '/analysis', icon: BarChart3, label: 'Analysis' },
   { type: 'link', path: '/statistics', icon: ChartColumn, label: 'Statistik & Chart' },
 ]

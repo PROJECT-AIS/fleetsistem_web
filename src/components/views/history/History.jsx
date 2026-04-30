@@ -1,285 +1,124 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Download, Search, ChevronLeft, ChevronRight, Calendar, Filter } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Download, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
-import { isDateInRange, isDateInCustomRange } from "../../../utils/dateUtils";
-import { influxService } from "../../../services/influxService";
+import api from "../../../services/api";
 
-const FILTER_OPTIONS = ["Semua", "Hari Ini", "Minggu Ini", "Bulan Ini"];
-
-// Status Badge Component
-const StatusBadge = ({ status, type }) => {
-  const getStyles = () => {
-    switch (type) {
-      case 'muatan':
-        if (status === "Terisi") return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-        if (status === "Kosong") return "bg-red-500/20 text-red-400 border-red-500/30";
-        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-      case 'boolean':
-        return status === "Ya"
-          ? "bg-red-500/20 text-red-400 border-red-500/30"
-          : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case 'anomali':
-        return status === "Terdeteksi"
-          ? "bg-red-500/20 text-red-400 border-red-500/30"
-          : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-      case 'retase':
-        return status === "Ya"
-          ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-          : "bg-gray-500/20 text-gray-400 border-gray-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    }
-  };
-
+const StatusBadge = ({ status }) => {
+  if (!status) return <span className="text-gray-500">-</span>;
+  const s = status.toLowerCase();
+  let color = "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  
+  if (s === "aktif" || s === "start" || s === "terbuka") color = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+  if (s === "passif" || s === "mati" || s === "tertutup") color = "bg-red-500/20 text-red-400 border-red-500/30";
+  if (s.includes("anomali")) color = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStyles()}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${color}`}>
       {status}
     </span>
   );
 };
 
-
-const TableSkeleton = () => (
-  <>
-    {[...Array(10)].map((_, i) => (
-      <tr key={i} className="animate-pulse" style={{ backgroundColor: i % 2 === 0 ? '#2d2e32' : '#343538' }}>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-8"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-32"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-32"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-16"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-20"></div></td>
-        <td className="px-4 py-4"><div className="h-4 bg-gray-700/50 rounded w-24"></div></td>
-        {[...Array(20)].map((_, j) => (
-          <td key={j} className="px-3 py-4">
-            <div className="h-4 bg-gray-700/50 rounded w-full"></div>
-          </td>
-        ))}
-      </tr>
-    ))}
-  </>
-);
-
 export default function History() {
-  const [activeFilter, setActiveFilter] = useState("Semua");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dataLog, setDataLog] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [influxLogs, setInfluxLogs] = useState([]);
-  const [totalData, setTotalData] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  const fetchHistory = useCallback(async (isInitial = false) => {
-    if (!isInitial && currentPage !== 1) return; // Only auto-poll on first page
-
+  const fetchData = async () => {
     try {
-      let fromStr = "-30d";
-      if (activeFilter === "Hari Ini") fromStr = "-24h";
-      else if (activeFilter === "Minggu Ini") fromStr = "-7d";
-      else if (activeFilter === "Bulan Ini") fromStr = "-30d";
-      
-      if (startDate) fromStr = new Date(startDate).toISOString();
-      let toStr = "now()";
-      if (endDate) toStr = new Date(endDate).toISOString();
-
-      const params = {
-        page: isInitial ? currentPage : 1, // Always fetch latest on poll
-        limit: itemsPerPage,
-        search: search,
-        from: fromStr,
-        to: toStr
-      };
-      const res = await influxService.getHistory(params);
-      
-      if (isInitial) {
-        setInfluxLogs(res.data.data);
-      } else {
-        setInfluxLogs(prev => {
-          // Filter out data we already have to avoid duplicates
-          const newData = res.data.data.filter(item => 
-            !prev.some(p => p.waktu === item.waktu && p.unitKendaraan === item.unitKendaraan)
-          );
-          if (newData.length === 0) return prev;
-          // Prepend new data and keep a reasonable limit
-          const combined = [...newData, ...prev];
-          return combined.slice(0, 500); 
-        });
+      setLoading(true);
+      const res = await api.get('/datalog');
+      if (res.data?.ok) {
+        setDataLog(res.data.data);
       }
-      
-      setTotalData(res.data.total || 0);
     } catch (error) {
-      console.error("Error fetching history:", error);
+      console.error("Error fetching datalog:", error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, search, startDate, endDate, activeFilter]);
+  };
 
   useEffect(() => {
-    setLoading(true);
-    fetchHistory(true);
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    const interval = setInterval(() => fetchHistory(false), 5000); // 5s poll for live feel
+    fetchData();
+    // Auto refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchData();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchHistory]);
+  }, []);
 
-  const historyData = useMemo(() => {
-    return influxLogs;
-  }, [influxLogs]);
-
-  // Filtered data based on active filters and search
   const filteredData = useMemo(() => {
-    return historyData.filter(row => {
-      const matchesFilter = isDateInRange(row.waktu, activeFilter);
-      const matchesDateRange = isDateInCustomRange(row.waktu, startDate, endDate);
-      const searchTerm = search.toLowerCase();
-      const matchesSearch = !searchTerm ||
-        row.idAlat.toLowerCase().includes(searchTerm) ||
-        row.unitKendaraan.toLowerCase().includes(searchTerm) ||
-        row.waktu.toLowerCase().includes(searchTerm);
+    if (!search) return dataLog;
+    const lower = search.toLowerCase();
+    return dataLog.filter(row => 
+      (row.idAlat || "").toLowerCase().includes(lower) ||
+      (row.noPol || "").toLowerCase().includes(lower) ||
+      (row.namaOperator || "").toLowerCase().includes(lower) ||
+      (row.jenisAlat || "").toLowerCase().includes(lower)
+    );
+  }, [dataLog, search]);
 
-      return matchesFilter && matchesDateRange && matchesSearch;
-    });
-  }, [activeFilter, startDate, endDate, search, historyData]);
-
-  // Pagination
-  const totalPages = Math.ceil(totalData / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = influxLogs;
+  const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  // Export to Excel function
   const handleExport = async () => {
     const XLSX = await import("xlsx");
-
-    // Prepare data for Excel
-    const excelData = filteredData.map((row, index) => ({
-      'No': index + 1,
-      'Waktu': row.waktu,
-      'ID Alat': row.idAlat,
-      'Unit Kendaraan': row.unitKendaraan,
-      'Kecepatan (Km/h)': row.kecepatanKendaraan,
-      'Jenis Muatan': row.jenisMuatan,
-      'Status Muatan': row.statusMuatan,
-      'Status Unit - Start': row.statusUnit.start,
-      'Status Unit - Rentang Aktif': row.statusUnit.rentangWaktuAktif,
-      'Status Unit - Total Aktif': row.statusUnit.totalDurasiAktif,
-      'Status Unit - Rentang Pasif': row.statusUnit.rentangWaktuPasif,
-      'Status Unit - Total Pasif': row.statusUnit.totalWaktuPasif,
-      'Status Unit - Mati': row.statusUnit.mati,
-      'Operator - Nama': row.operator.nama,
-      'Operator - ID': row.operator.id,
-      'Operator - Jabatan': row.operator.jabatan,
-      'Operator - Divisi': row.operator.divisi,
-      'GPS - Latitude': row.gps.latitude.toFixed(6),
-      'GPS - Longitude': row.gps.longitude.toFixed(6),
-      'GPS - Trip': row.gps.trip,
-      'Sensor Fuel - Volume (L)': row.sensorFuel.volumeBahanBakar,
-      'Sensor Fuel - Konsumsi (L/km)': row.sensorFuel.konsumsi,
-      'Sensor Fuel - Anomali': row.sensorFuel.anomaliStatus,
-      'Sensor Fuel - Masuk (L)': row.sensorFuel.bahanBakarMasuk,
-      'Lokasi - Awal': row.lokasi.awal,
-      'Lokasi - Akhir': row.lokasi.akhir,
-      'Set Ulang Retase': row.retase.setUlangRetase
+    const excelData = filteredData.map((row, i) => ({
+      'NO': i + 1,
+      'WAKTU': row.waktu ? new Date(row.waktu).toLocaleString('id-ID') : '',
+      'ID_ALAT': row.idAlat,
+      'NO_POL': row.noPol,
+      'JENIS ALAT': row.jenisAlat,
+      'MEREK ALAT': row.merekAlat,
+      'TRIP': row.trip,
+      'LATITUDE': row.latitude,
+      'LONGITUDE': row.longitude,
+      'KECEPATAN KENDARAAN (KM/JAM)': row.kecepatan,
+      'JENIS MUATAN': row.jenisMuatan,
+      'VOLUME FUEL': row.volumeFuel,
+      'KONSUMSI FUEL': row.konsumsiFuel,
+      'ANOMALI STATUS FUEL': row.anomaliStatusFuel,
+      'FUEL MASUK': row.fuelMasuk,
+      'STATUS ALAT': row.statusAlat,
+      'START': row.start,
+      'RENTANG WAKTU AKTIF': row.rentangWaktuAktif,
+      'DURASI AKTIF': row.durasiAktif,
+      'RENTANG WAKTU PASSIF': row.rentangWaktuPassif,
+      'DURASI PASSIF': row.durasiPassif,
+      'MATI': row.mati,
+      'NAMA OPERATOR': row.namaOperator,
+      'ID OPERATOR': row.idOperator,
+      'STATUS TRIP': row.statusTrip,
     }));
-
-    // Create workbook and worksheet
+    
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Set column widths
-    const columnWidths = [
-      { wch: 5 },  // No
-      { wch: 20 }, // Waktu
-      { wch: 12 }, // ID Alat
-      { wch: 15 }, // Unit Kendaraan
-      { wch: 12 }, // Kecepatan
-      { wch: 12 }, // Jenis Muatan
-      { wch: 12 }, // Status Muatan
-      { wch: 12 }, // Start
-      { wch: 18 }, // Rentang Aktif
-      { wch: 12 }, // Total Aktif
-      { wch: 18 }, // Rentang Pasif
-      { wch: 12 }, // Total Pasif
-      { wch: 8 },  // Mati
-      { wch: 18 }, // Nama
-      { wch: 12 }, // Operator ID
-      { wch: 12 }, // Jabatan
-      { wch: 12 }, // Divisi
-      { wch: 14 }, // Latitude
-      { wch: 14 }, // Longitude
-      { wch: 10 }, // Trip
-      { wch: 12 }, // Volume
-      { wch: 12 }, // Konsumsi
-      { wch: 12 }, // Anomali
-      { wch: 12 }, // Masuk
-      { wch: 15 }, // Awal
-      { wch: 15 }, // Akhir
-      { wch: 15 }, // Retase
-    ];
-    worksheet['!cols'] = columnWidths;
-
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'History Data');
-
-    // Generate Excel file and download
-    XLSX.writeFile(workbook, `history_data_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Log');
+    XLSX.writeFile(workbook, `DataLog_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
     <PageLayout className="p-6">
-      <h1 className="text-2xl font-bold text-white mb-6">History Data</h1>
-
-      {/* Main Container */}
+      <h1 className="text-2xl font-bold text-white mb-6">Data Log Real Time (Database)</h1>
+      
       <div className="bg-[#343538] rounded-2xl p-6 shadow-2xl">
-        {/* Filter Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-          {/* Left: Filter Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1 bg-[#2d2e32] p-1 rounded-xl">
-              {FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm ${activeFilter === opt
-                    ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30"
-                    : "text-gray-400 hover:text-white hover:bg-[#3d3e42]"
-                    }`}
-                  onClick={() => { setActiveFilter(opt); setCurrentPage(1); }}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-
-            {/* Date Range */}
-            <div className="flex items-center gap-2 bg-[#2d2e32] px-3 py-2 rounded-xl">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <input
-                type="date"
-                className="bg-transparent text-white text-sm focus:outline-none w-32"
-                value={startDate}
-                onChange={e => { setStartDate(e.target.value); setCurrentPage(1); }}
-              />
-              <span className="text-gray-500">-</span>
-              <input
-                type="date"
-                className="bg-transparent text-white text-sm focus:outline-none w-32"
-                value={endDate}
-                onChange={e => { setEndDate(e.target.value); setCurrentPage(1); }}
-              />
-            </div>
+          <div className="flex items-center gap-3">
+             <button onClick={fetchData} className="px-4 py-2 bg-[#4a4b4d] hover:bg-[#5a5b5d] text-white rounded-lg text-sm font-semibold transition-all">
+               Refresh Data
+             </button>
+             <span className="text-xs text-gray-400">Auto refresh setiap 10 detik</span>
           </div>
 
-          {/* Right: Search & Download */}
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Cari data..."
+                placeholder="Cari alat/nopol/operator..."
                 className="bg-[#2d2e32] text-white pl-10 pr-4 py-2.5 rounded-xl border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none focus:ring-2 focus:ring-[#74CD25]/20 w-64 text-sm transition-all"
                 value={search}
                 onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
@@ -295,108 +134,91 @@ export default function History() {
           </div>
         </div>
 
-        {/* Info Bar */}
-        <div className="flex items-center justify-between mb-4 px-1">
-          <p className="text-sm text-gray-400">
-            Total: <span className="text-white font-semibold">{filteredData.length}</span> data
-          </p>
-          {totalPages > 1 && (
-            <p className="text-sm text-gray-400">
-              Halaman <span className="text-white font-semibold">{currentPage}</span> dari <span className="text-white font-semibold">{totalPages}</span>
-            </p>
-          )}
-        </div>
-
-        {/* Table */}
         <div className="rounded-xl border border-[#4a4b4d] overflow-hidden">
           <div className="overflow-x-auto scrollbar-hide">
-            <table className="w-full" style={{ minWidth: '2400px' }}>
-              <thead className="sticky top-0 z-10">
-                {/* Main Header Row */}
-                <tr className="bg-gradient-to-r from-[#4A8516] to-[#5FA81E]">
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Seq</th>
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Waktu</th>
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">ID Alat</th>
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Unit Kendaraan</th>
-                  <th rowSpan="2" className="px-4 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Kecepatan</th>
-                  <th rowSpan="2" className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Jenis Muatan</th>
-                  <th rowSpan="2" className="px-4 py-3 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10">Status Muatan</th>
-                  <th colSpan="6" className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 bg-[#5FA81E]/80">Status Unit</th>
-                  <th colSpan="4" className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 bg-[#6BB82E]/80">Operator</th>
-                  <th colSpan="3" className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 bg-[#5FA81E]/80">GPS</th>
-                  <th colSpan="4" className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 bg-[#6BB82E]/80">Sensor Fuel</th>
-                  <th colSpan="2" className="px-4 py-2 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/10 bg-[#5FA81E]/80">Lokasi</th>
-                  <th rowSpan="2" className="px-4 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Retase</th>
+            <table className="w-full text-sm" style={{ minWidth: '3200px' }}>
+              <thead className="sticky top-0 z-10 bg-[#92d050] text-black">
+                <tr>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">NO</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase min-w-[160px]">WAKTU</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">ID_ALAT</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">NO_POL</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">JENIS ALAT</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">MEREK ALAT</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">TRIP</th>
+                  <th colSpan="3" className="px-3 py-2 font-bold border border-black/20 uppercase bg-[#ffc000] text-center">DATA GPS</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">JENIS MUATAN</th>
+                  <th colSpan="4" className="px-3 py-2 font-bold border border-black/20 uppercase bg-[#ffc000] text-center">DATA SENSOR FUEL</th>
+                  <th colSpan="7" className="px-3 py-2 font-bold border border-black/20 uppercase bg-[#ffc000] text-center">STATUS ALAT</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase min-w-[140px]">NAMA OPERATOR</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">ID OPERATOR</th>
+                  <th rowSpan="2" className="px-3 py-3 font-bold border border-black/20 uppercase">STATUS TRIP</th>
                 </tr>
-                {/* Sub Header Row */}
-                <tr className="bg-[#3d6d12]">
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Start</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10 whitespace-nowrap">Rentang Aktif</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10 whitespace-nowrap">Total Aktif</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10 whitespace-nowrap">Rentang Pasif</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10 whitespace-nowrap">Total Pasif</th>
-                  <th className="px-3 py-2 text-center text-xs font-semibold text-white/90 border-r border-white/10">Mati</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Nama</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">ID</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Jabatan</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Divisi</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Latitude</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Longitude</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Trip</th>
-                  <th className="px-3 py-2 text-center text-xs font-semibold text-white/90 border-r border-white/10">Volume (L)</th>
-                  <th className="px-3 py-2 text-center text-xs font-semibold text-white/90 border-r border-white/10 whitespace-nowrap">Konsumsi</th>
-                  <th className="px-3 py-2 text-center text-xs font-semibold text-white/90 border-r border-white/10">Anomali</th>
-                  <th className="px-3 py-2 text-center text-xs font-semibold text-white/90 border-r border-white/10">Masuk (L)</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Awal</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-white/90 border-r border-white/10">Akhir</th>
+                <tr className="bg-[#92d050]">
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">LATITUDE</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">LONGITUDE</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">KECEPATAN KENDARAAN (KM/JAM)</th>
+                  
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">VOLUME FUEL</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">KONSUMSI FUEL</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">ANOMALI STATUS FUEL</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">FUEL MASUK</th>
+                  
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">STATUS ALAT</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">START</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">RENTANG WAKTU AKTIF</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">DURASI AKTIF</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">RENTANG WAKTU PASSIF</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">DURASI PASSIF</th>
+                  <th className="px-3 py-2 font-bold border border-black/20 uppercase">MATI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#4a4b4d]">
-                {loading && influxLogs.length === 0 ? (
-                  <TableSkeleton />
+                {loading && dataLog.length === 0 ? (
+                  <tr>
+                     <td colSpan="25" className="px-4 py-8 text-center text-gray-400">Loading data...</td>
+                  </tr>
                 ) : paginatedData.length > 0 ? (
-                  paginatedData.map((row, index) => (
-                    <tr
-                      key={`${row.waktu}-${row.idAlat}-${index}`}
-                      className="hover:bg-[#3d3e42] transition-colors duration-150"
-                      style={{ backgroundColor: index % 2 === 0 ? '#2d2e32' : '#343538' }}
-                    >
-                      <td className="px-4 py-3 text-sm text-gray-300 font-medium">{row.seq}</td>
-                      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap font-mono">{row.waktu}</td>
-                      <td className="px-4 py-3 text-sm text-white font-semibold">{row.idAlat}</td>
-                      <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">{row.unitKendaraan}</td>
-                      <td className="px-4 py-3 text-sm text-gray-300 text-center font-mono">{row.kecepatanKendaraan} <span className="text-gray-500 text-xs">km/h</span></td>
-                      <td className="px-4 py-3 text-sm text-gray-300">{row.jenisMuatan}</td>
-                      <td className="px-4 py-3 text-center"><StatusBadge status={row.statusMuatan} type="muatan" /></td>
-                      <td className="px-3 py-3 text-sm text-gray-300 font-mono">{row.statusUnit.start}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 whitespace-nowrap">{row.statusUnit.rentangWaktuAktif}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.statusUnit.totalDurasiAktif}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 whitespace-nowrap">{row.statusUnit.rentangWaktuPasif}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.statusUnit.totalWaktuPasif}</td>
-                      <td className="px-3 py-3 text-center"><StatusBadge status={row.statusUnit.mati} type="boolean" /></td>
-                      <td className="px-3 py-3 text-sm text-white font-medium whitespace-nowrap">{row.operator.nama}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 font-mono">{row.operator.id}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.operator.jabatan}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.operator.divisi}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 font-mono">{row.gps.latitude.toFixed(6)}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 font-mono">{row.gps.longitude.toFixed(6)}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.gps.trip}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 text-center font-mono">{row.sensorFuel.volumeBahanBakar}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300 text-center font-mono">{row.sensorFuel.konsumsi}</td>
-                      <td className="px-3 py-3 text-center"><StatusBadge status={row.sensorFuel.anomaliStatus} type="anomali" /></td>
-                      <td className="px-3 py-3 text-sm text-gray-300 text-center font-mono">{row.sensorFuel.bahanBakarMasuk}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.lokasi.awal}</td>
-                      <td className="px-3 py-3 text-sm text-gray-300">{row.lokasi.akhir}</td>
-                      <td className="px-3 py-3 text-center"><StatusBadge status={row.retase.setUlangRetase} type="retase" /></td>
+                  paginatedData.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-[#3d3e42]" style={{ backgroundColor: idx % 2 === 0 ? '#2d2e32' : '#343538' }}>
+                      <td className="px-3 py-3 text-gray-300 text-center border-r border-[#4a4b4d]">{startIndex + idx + 1}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.waktu ? new Date(row.waktu).toLocaleString('id-ID') : '-'}</td>
+                      <td className="px-3 py-3 text-white font-medium border-r border-[#4a4b4d]">{row.idAlat || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.noPol || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.jenisAlat || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.merekAlat || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.trip || '-'}</td>
+                      
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.latitude || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.longitude || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 text-center border-r border-[#4a4b4d]">{row.kecepatan || '-'}</td>
+                      
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.jenisMuatan || '-'}</td>
+                      
+                      <td className="px-3 py-3 text-gray-300 font-mono text-center border-r border-[#4a4b4d]">{row.volumeFuel || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono text-center border-r border-[#4a4b4d]">{row.konsumsiFuel || '-'}</td>
+                      <td className="px-3 py-3 text-center border-r border-[#4a4b4d]"><StatusBadge status={row.anomaliStatusFuel} /></td>
+                      <td className="px-3 py-3 text-gray-300 font-mono text-center border-r border-[#4a4b4d]">{row.fuelMasuk || '-'}</td>
+                      
+                      <td className="px-3 py-3 text-center border-r border-[#4a4b4d]"><StatusBadge status={row.statusAlat} /></td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.start || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.rentangWaktuAktif || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.durasiAktif || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.rentangWaktuPassif || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.durasiPassif || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 font-mono border-r border-[#4a4b4d]">{row.mati || '-'}</td>
+                      
+                      <td className="px-3 py-3 text-white border-r border-[#4a4b4d]">{row.namaOperator || '-'}</td>
+                      <td className="px-3 py-3 text-gray-300 border-r border-[#4a4b4d]">{row.idOperator || '-'}</td>
+                      <td className="px-3 py-3 text-center"><StatusBadge status={row.statusTrip} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="27" className="px-4 py-12 text-center">
+                    <td colSpan="25" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Filter className="w-12 h-12 text-gray-600" />
                         <p className="text-gray-400 text-lg">Tidak ada data ditemukan</p>
-                        <p className="text-gray-500 text-sm">Coba ubah filter atau kata kunci pencarian</p>
                       </div>
                     </td>
                   </tr>
@@ -406,7 +228,6 @@ export default function History() {
           </div>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#4a4b4d]">
             <p className="text-sm text-gray-400">
@@ -416,30 +237,20 @@ export default function History() {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg bg-[#2d2e32] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d3e42] transition-colors border border-[#4a4b4d]"
+                className="p-2 rounded-lg bg-[#2d2e32] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d3e42] border border-[#4a4b4d]"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-
-              {/* Page Numbers */}
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
+                  let pageNum = currentPage > 3 ? currentPage - 2 + i : i + 1;
+                  if (totalPages > 5 && currentPage > totalPages - 2) pageNum = totalPages - 4 + i;
                   return (
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`w-9 h-9 rounded-lg text-sm font-medium transition-all duration-200 ${currentPage === pageNum
-                        ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30"
+                      className={`w-9 h-9 rounded-lg text-sm font-medium ${currentPage === pageNum
+                        ? "bg-[#74CD25] text-white"
                         : "bg-[#2d2e32] text-gray-400 hover:bg-[#3d3e42] hover:text-white border border-[#4a4b4d]"
                         }`}
                     >
@@ -448,11 +259,10 @@ export default function History() {
                   );
                 })}
               </div>
-
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg bg-[#2d2e32] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d3e42] transition-colors border border-[#4a4b4d]"
+                className="p-2 rounded-lg bg-[#2d2e32] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#3d3e42] border border-[#4a4b4d]"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>

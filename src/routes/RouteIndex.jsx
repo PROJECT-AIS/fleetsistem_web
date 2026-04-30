@@ -26,6 +26,7 @@ const Login = lazy(() => import('../components/auth/Login'))
 const Register = lazy(() => import('../components/auth/Register'))
 const ProfileScreen = lazy(() => import('../components/views/profile/ProfileScreen'))
 const History = lazy(() => import('../components/views/history/History'))
+const DataTrip = lazy(() => import('../components/views/history/DataTrip'))
 const Analysis = lazy(() => import('../components/views/analysis/Analysis'))
 const Statistics = lazy(() => import('../components/views/statistics/Statistics'))
 const ConfigScreen = lazy(() => import('../components/views/config/ConfigScreen'))
@@ -75,6 +76,14 @@ function RouteIndex() {
           element={
             <ProtectedRoute>
               <History />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/data-trip'
+          element={
+            <ProtectedRoute>
+              <DataTrip />
             </ProtectedRoute>
           }
         />
