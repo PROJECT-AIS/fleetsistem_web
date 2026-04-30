@@ -12,6 +12,24 @@ export const MQTT_ACTIONS = {
     materialDelete: ["sync_material_hapus"],
 };
 
+export const publishToTopic = (topic, payload) => {
+    return new Promise((resolve, reject) => {
+        const client = mqtt.connect(MQTT_BROKER_URL);
+        client.on("connect", () => {
+            const message = typeof payload === "string" ? payload : JSON.stringify(payload);
+            client.publish(topic, message, { qos: 1 }, (error) => {
+                client.end(true);
+                if (error) reject(error);
+                else resolve();
+            });
+        });
+        client.on("error", (err) => {
+            client.end(true);
+            reject(err);
+        });
+    });
+};
+
 export const publishMqttActions = (actions) => {
     const actionList = (Array.isArray(actions) ? actions : [actions]).filter(Boolean);
 

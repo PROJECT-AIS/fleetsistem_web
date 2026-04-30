@@ -13,6 +13,10 @@ import {
   UserRound,
   WifiOff,
   X,
+  MessageSquare,
+  Send,
+  Headset,
+  Loader2,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageLayout from "../../layout/PageLayout";
@@ -25,6 +29,7 @@ import {
   KONSUMSI_BBM,
 } from "../../../data/vehicleData";
 import { influxService } from "../../../services/influxService";
+import { publishToTopic } from "../../../utils/mqttActions";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -71,11 +76,141 @@ const StatusPanel = React.memo(({ title, items }) => (
 
 const ProductionBadge = React.memo(({ title, value }) => (
   <div className="w-[148px] overflow-hidden rounded-[12px] bg-[#2c493d] shadow-lg">
-    <div className="bg-[#2f3d37] px-3 py-1.5 text-[15px] font-extrabold leading-none text-white">{title}</div>
-    <div className="bg-[#30c948] px-3 py-1.5 text-center text-[16px] font-black text-[#10331a]">{value}</div>
+    <div className="bg-[#1b2f27] px-3 py-1 text-[11px] font-bold text-[#4caf50] uppercase tracking-wider">
+      {title}
+    </div>
+    <div className="px-3 py-2 text-[20px] font-black text-white leading-tight">
+      {value}
+    </div>
   </div>
 ));
 
+const ChatOverlay = ({ selectedVehicle }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [chatType, setChatType] = useState("broadcast"); // broadcast | device
+
+  useEffect(() => {
+    if (selectedVehicle) setChatType("device");
+    else setChatType("broadcast");
+  }, [selectedVehicle]);
+
+  const handleSend = async () => {
+    if (!message.trim() || isSending) return;
+    setIsSending(true);
+
+    try {
+      const topic = chatType === "broadcast" 
+        ? "fms/chat" 
+        : `fms/${selectedVehicle?.vehicleId || selectedVehicle?.idFms || selectedVehicle?.id}/chat`;
+      
+      const payload = {
+        message: message.trim(),
+        sender: "Web Admin",
+        timestamp: new Date().toISOString(),
+        type: chatType
+      };
+
+      await publishToTopic(topic, payload);
+      setMessage("");
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to send chat:", error);
+      alert("Gagal mengirim pesan chat");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const bottomClass = selectedVehicle ? "bottom-[260px]" : "bottom-6";
+
+  return (
+    <div className={cn("absolute left-6 z-[60] transition-all duration-500", bottomClass)}>
+      {isOpen ? (
+        <div className="mb-4 w-80 overflow-hidden rounded-[24px] border border-white/20 bg-[#2d2e32]/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#39ff14]/20 text-[#39ff14]">
+                <Headset className="h-4 w-4" />
+              </div>
+              <span className="text-sm font-bold text-white uppercase tracking-wider">Chat Operator</span>
+            </div>
+            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mb-4 flex gap-2">
+            <button
+              onClick={() => setChatType("broadcast")}
+              className={cn(
+                "flex-1 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all",
+                chatType === "broadcast" ? "bg-[#39ff14] text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+              )}
+            >
+              BROADCAST
+            </button>
+            <button
+              onClick={() => {
+                if (!selectedVehicle) {
+                  alert("Silakan pilih kendaraan di peta terlebih dahulu untuk mengirim pesan spesifik.");
+                  return;
+                }
+                setChatType("device");
+              }}
+              className={cn(
+                "flex-1 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all",
+                chatType === "device" ? "bg-[#39ff14] text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+              )}
+            >
+              SPECIFIC DEVICE
+            </button>
+          </div>
+
+          {chatType === "device" && selectedVehicle && (
+            <div className="mb-3 rounded-lg bg-[#39ff14]/10 px-3 py-2 border border-[#39ff14]/20">
+              <div className="text-[10px] text-[#39ff14] font-bold uppercase">Target Device</div>
+              <div className="text-xs text-white font-medium">{selectedVehicle.noPlat || selectedVehicle.idFms}</div>
+            </div>
+          )}
+
+          <div className="relative">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Tulis pesan ke operator..."
+              className="h-24 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-white placeholder:text-gray-500 focus:border-[#39ff14]/50 focus:outline-none transition-all pointer-events-auto"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={isSending || !message.trim()}
+              className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-lg bg-[#39ff14] text-black shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:grayscale pointer-events-auto"
+            >
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "group flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 bg-[#35363a]/90 text-white shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95 pointer-events-auto",
+          isOpen && "border-[#39ff14] bg-black text-[#39ff14]"
+        )}
+      >
+        <MessageSquare className="h-6 w-6 transition-transform group-hover:rotate-12" />
+      </button>
+    </div>
+  );
+};
 const ProductionItem = React.memo(({ label, value, tone }) => (
   <div className="flex min-w-[200px] flex-1 overflow-hidden rounded-full bg-[#21362c] shadow-md">
     <div className="flex flex-1 items-center justify-center bg-[#2f3d37] px-3 py-1.5 text-center text-[13px] font-extrabold text-white">
@@ -739,6 +874,8 @@ const HomeScreen = () => {
               canGoNext={canGoNext}
             />
           ) : null}
+          
+          <ChatOverlay selectedVehicle={selectedVehicle} />
         </div>
       {/* </div> */}
 

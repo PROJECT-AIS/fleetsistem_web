@@ -5,6 +5,18 @@ import { alatService, operatorService, lokasiService, shiftCodeService, material
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
 import { resolveBackendUrl } from "../../../config/apiConfig";
 import { MQTT_ACTIONS, publishMqttActions } from "../../../utils/mqttActions";
+import {
+    analysisBodyCellClass,
+    analysisBodyClass,
+    analysisHeaderCellClass,
+    analysisHeaderRowClass,
+    analysisTableClass,
+    analysisTableHeadClass,
+    analysisTableScrollClass,
+    analysisTableShellClass,
+    analysisRowClass,
+    getStripedRowStyle,
+} from "../shared/tableStyles";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
 
@@ -732,26 +744,27 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto rounded-xl border border-[#4a4b4d]">
-                <table className="w-full">
-                    <thead>
-                        <tr className="bg-[#5A5B5D]">
-                            <th className="px-4 py-3 text-left text-sm font-bold text-white">No</th>
+            <div className={analysisTableShellClass}>
+                <div className={analysisTableScrollClass}>
+                <table className={analysisTableClass}>
+                    <thead className={analysisTableHeadClass}>
+                        <tr className={analysisHeaderRowClass}>
+                            <th className={`${analysisHeaderCellClass} text-left`}>No</th>
                             {columns.map((col) => (
-                                <th key={col.key} className="px-4 py-3 text-left text-sm font-bold text-white">
+                                <th key={col.key} className={`${analysisHeaderCellClass} text-left`}>
                                     {col.label}
                                 </th>
                             ))}
-                            <th className="px-4 py-3 text-center text-sm font-bold text-white">Aksi</th>
+                            <th className={`${analysisHeaderCellClass} text-center`}>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className={analysisBodyClass}>
                         {paginatedData.length > 0 ? (
                             paginatedData.map((item, index) => (
-                                <tr key={item.id} className="border-t border-[#4a4b4d] hover:bg-[#3d3e42] transition-colors">
-                                    <td className="px-4 py-3 text-sm text-gray-300">{startIndex + index + 1}</td>
+                                <tr key={item.id} className={analysisRowClass} style={getStripedRowStyle(index)}>
+                                    <td className={analysisBodyCellClass}>{startIndex + index + 1}</td>
                                     {columns.map((col) => (
-                                        <td key={col.key} className="px-4 py-3 text-sm text-gray-300">
+                                        <td key={col.key} className={analysisBodyCellClass}>
                                             {col.key === "status" ? (
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${item[col.key] === "Aktif" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
                                                     }`}>
@@ -762,7 +775,7 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
                                             )}
                                         </td>
                                     ))}
-                                    <td className="px-4 py-3">
+                                    <td className={`${analysisBodyCellClass} text-center`}>
                                         <div className="flex items-center justify-center gap-2">
                                             <button
                                                 onClick={() => onEdit?.(item)}
@@ -791,6 +804,7 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {/* Pagination */}
@@ -845,6 +859,7 @@ const materialTypeColumns = [
 ];
 
 const operatorColumns = [
+    { key: "idOperator", label: "ID Operator" },
     { key: "nama", label: "Nama" },
     { key: "noTelp", label: "No Telepon" },
     { key: "divisi", label: "Divisi" },

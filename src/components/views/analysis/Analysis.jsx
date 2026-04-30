@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import PageLayout from "../../layout/PageLayout";
 import { influxService } from "../../../services/influxService";
+import {
+  analysisBodyCellClass,
+  analysisBodyClass,
+  analysisGroupedHeaderCellClass,
+  analysisHeaderCellClass,
+  analysisHeaderRowClass,
+  analysisSubHeaderCellClass,
+  analysisSubHeaderRowClass,
+  analysisTableClass,
+  analysisTableHeadClass,
+  analysisTableScrollClass,
+  analysisTableShellClass,
+  analysisRowClass,
+  getStripedRowStyle,
+  getTableAlignClass,
+} from "../shared/tableStyles";
 
 const baseColumns = [
   { key: "seq", label: "SEQ", width: 40, align: "right" },
@@ -240,19 +256,6 @@ const previewRows = [
 const allColumns = [...baseColumns, ...tripColumns, ...summaryColumns];
 const tableWidth = allColumns.reduce((total, column) => total + column.width, 0);
 
-const headerCellClass =
-  "border-r border-white/10 px-3 py-3 text-center align-middle text-xs font-bold uppercase leading-tight tracking-wider text-white";
-const subHeaderCellClass =
-  "border-r border-white/10 px-3 py-2 text-center align-middle text-xs font-semibold uppercase leading-tight text-white/90";
-const bodyCellClass =
-  "px-3 py-3 align-middle text-sm leading-5 text-gray-300";
-
-const getAlignClass = (align) => {
-  if (align === "right") return "text-right";
-  if (align === "center") return "text-center";
-  return "text-left";
-};
-
 const renderHeaderLabel = (label) => (
   <span className="block whitespace-normal">
     {label.split(" ").map((word, index) => (
@@ -321,10 +324,10 @@ export default function Analysis() {
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-[#4a4b4d]">
-          <div className="overflow-x-auto scrollbar-hide">
+        <div className={analysisTableShellClass}>
+          <div className={analysisTableScrollClass}>
             <table
-              className="w-full"
+              className={analysisTableClass}
               style={{ borderCollapse: "separate", borderSpacing: 0, minWidth: Math.max(tableWidth, 2400), tableLayout: "fixed" }}
             >
               <colgroup>
@@ -332,44 +335,44 @@ export default function Analysis() {
                   <col key={column.key} style={{ width: column.width }} />
                 ))}
               </colgroup>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gradient-to-r from-[#4A8516] to-[#5FA81E]">
+              <thead className={analysisTableHeadClass}>
+                <tr className={analysisHeaderRowClass}>
                   {baseColumns.map((column) => (
-                    <th key={column.key} rowSpan={2} className={headerCellClass}>
+                    <th key={column.key} rowSpan={2} className={`${analysisHeaderCellClass} text-center`}>
                       {renderHeaderLabel(column.label)}
                     </th>
                   ))}
                   <th
                     colSpan={tripColumns.length}
-                    className="border-r border-white/10 bg-[#6BB82E]/80 px-4 py-2 text-center align-middle text-xs font-bold uppercase tracking-wider text-white"
+                    className={analysisGroupedHeaderCellClass}
                   >
                     TRIP MUATAN
                   </th>
                   {summaryColumns.map((column) => (
-                    <th key={column.key} rowSpan={2} className={headerCellClass}>
+                    <th key={column.key} rowSpan={2} className={`${analysisHeaderCellClass} text-center`}>
                       {renderHeaderLabel(column.label)}
                     </th>
                   ))}
                 </tr>
-                <tr className="bg-[#3d6d12]">
+                <tr className={analysisSubHeaderRowClass}>
                   {tripColumns.map((column) => (
-                    <th key={column.key} className={subHeaderCellClass}>
+                    <th key={column.key} className={`${analysisSubHeaderCellClass} text-center`}>
                       {renderHeaderLabel(column.label)}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#4a4b4d]">
+              <tbody className={analysisBodyClass}>
                 {displayRows.map((row, rowIndex) => (
                   <tr
                     key={`preview-row-${rowIndex}`}
-                    className="transition-colors duration-150 hover:bg-[#3d3e42]"
-                    style={{ backgroundColor: rowIndex % 2 === 0 ? "#2d2e32" : "#343538" }}
+                    className={analysisRowClass}
+                    style={getStripedRowStyle(rowIndex)}
                   >
                     {allColumns.map((column) => (
                       <td
                         key={`${rowIndex}-${column.key}`}
-                        className={`${bodyCellClass} ${getAlignClass(column.align)} ${
+                        className={`${analysisBodyCellClass} ${getTableAlignClass(column.align)} ${
                           column.key === "idAlat" ? "font-semibold text-white" : ""
                         } ${column.key === "operator" ? "font-medium text-white" : ""}`}
                       >

@@ -1,10 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, Eye, EyeOff, Check, Loader2, PackageSearch } from "lucide-react";
+import { Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, Eye, EyeOff, Check, Loader2, PackageSearch, Wifi, WifiOff, CreditCard } from "lucide-react";
+import { useNfcScan } from "../../../hooks/useNfcScan";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
 import { Link } from "react-router-dom";
 import { MQTT_ACTIONS, publishMqttActions } from "../../../utils/mqttActions";
+import {
+    analysisBodyCellClass,
+    analysisBodyClass,
+    analysisHeaderCellClass,
+    analysisHeaderRowClass,
+    analysisTableClass,
+    analysisTableHeadClass,
+    analysisTableScrollClass,
+    analysisTableShellClass,
+    analysisRowClass,
+    getStripedRowStyle,
+} from "../shared/tableStyles";
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAcm-7sXCOMDgcP6YCH2cG_vWK4EfiP5ac';
 
@@ -96,10 +109,12 @@ const PREVIEW_TABLES = {
     operator: {
         title: "Data Operator Tersimpan",
         columns: [
+            { key: "idOperator", label: "ID Operator" },
             { key: "nama", label: "Nama" },
-            { key: "noTelp", label: "No. Telepon" },
-            { key: "divisi", label: "Divisi" },
             { key: "jabatan", label: "Jabatan" },
+            { key: "divisi", label: "Divisi" },
+            { key: "noTelp", label: "No. Telepon" },
+            { key: "idCardNfc", label: "ID Card NFC" },
         ],
     },
     lokasi: {
@@ -147,7 +162,7 @@ const PREVIEW_TABLES = {
 };
 
 const PreviewTable = ({ title, columns, rows, manageHref }) => (
-    <div className="mt-8 rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-5">
+    <div className="mt-8 rounded-2xl bg-[#343538] p-5 shadow-xl">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
                 <h3 className="text-lg font-bold text-white">{title}</h3>
@@ -167,22 +182,23 @@ const PreviewTable = ({ title, columns, rows, manageHref }) => (
                 Belum ada data yang tersimpan.
             </div>
         ) : (
-            <div className="overflow-x-auto rounded-lg border border-[#4a4b4d]">
-                <table className="w-full text-left">
-                    <thead className="bg-[#3a3b3f]">
-                        <tr>
+            <div className={analysisTableShellClass}>
+                <div className={analysisTableScrollClass}>
+                <table className={`${analysisTableClass} text-left`}>
+                    <thead className={analysisTableHeadClass}>
+                        <tr className={analysisHeaderRowClass}>
                             {columns.map((column) => (
-                                <th key={column.key} className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-white">
+                                <th key={column.key} className={`${analysisHeaderCellClass} text-left`}>
                                     {column.label}
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {rows.map((row) => (
-                            <tr key={row.id} className="border-t border-[#4a4b4d]">
+                    <tbody className={analysisBodyClass}>
+                        {rows.map((row, index) => (
+                            <tr key={row.id} className={analysisRowClass} style={getStripedRowStyle(index)}>
                                 {columns.map((column) => (
-                                    <td key={column.key} className="px-4 py-3 text-sm text-gray-300">
+                                    <td key={column.key} className={analysisBodyCellClass}>
                                         {row[column.key] ?? "-"}
                                     </td>
                                 ))}
@@ -190,6 +206,7 @@ const PreviewTable = ({ title, columns, rows, manageHref }) => (
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         )}
     </div>
@@ -345,12 +362,28 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
     );
 };
 
-// Input Data Operator Component
+// Input Data Operator Component (with NFC Scan)
 const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
-    const [form, setForm] = useState({ nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
+    const [form, setForm] = useState({ idOperator: "", nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
     const [loading, setLoading] = useState(false);
+    const { scanning, nfcId, error: nfcError, startScan, stopScan } = useNfcScan({ timeout: 30000 });
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    // Auto-fill NFC ID when scanned
+    useEffect(() => {
+        if (nfcId) {
+            setForm(prev => ({ ...prev, idCardNfc: nfcId }));
+            showToast(`Kartu NFC terdeteksi: ${nfcId}`, "success");
+        }
+    }, [nfcId, showToast]);
+
+    // Show error toast if NFC scan fails
+    useEffect(() => {
+        if (nfcError) {
+            showToast(nfcError, "error");
+        }
+    }, [nfcError, showToast]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -358,7 +391,7 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
         try {
             await operatorService.create(form);
             showToast("Data operator berhasil disimpan", "success");
-            setForm({ nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
+            setForm({ idOperator: "", nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
             onSaved?.();
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menyimpan data operator", "error");
@@ -370,16 +403,8 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} placeholder="OP-001" required />
                 <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama lengkap" required />
-                <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required />
-                <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
-                    options={[
-                        { value: "Operasional", label: "Operasional" },
-                        { value: "Logistik", label: "Logistik" },
-                        { value: "Maintenance", label: "Maintenance" },
-                        { value: "HSE", label: "HSE" },
-                    ]} required />
-                <FormInput label="ID Card NFC" name="idCardNfc" value={form.idCardNfc} onChange={handleChange} placeholder="NFC-XXXXX" />
                 <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
                     options={[
                         { value: "Driver", label: "Driver" },
@@ -387,8 +412,78 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                         { value: "Supervisor", label: "Supervisor" },
                         { value: "Mekanik", label: "Mekanik" },
                     ]} required />
-                <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" />
+                <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
+                    options={[
+                        { value: "Operasional", label: "Operasional" },
+                        { value: "Logistik", label: "Logistik" },
+                        { value: "Maintenance", label: "Maintenance" },
+                        { value: "HSE", label: "HSE" },
+                    ]} required />
+                <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required />
+                <div className="md:col-span-2">
+                    <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" />
+                </div>
             </div>
+
+            {/* NFC Scan Section */}
+            <div className="rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <CreditCard className="w-5 h-5 text-[#74CD25]" />
+                    <h3 className="text-sm font-semibold text-white">ID Card NFC</h3>
+                </div>
+
+                <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                        <input
+                            type="text"
+                            name="idCardNfc"
+                            value={form.idCardNfc}
+                            onChange={handleChange}
+                            placeholder="Tekan Scan untuk membaca kartu NFC..."
+                            className="w-full bg-[#1e1f22] text-white px-4 py-3 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors font-mono text-sm"
+                        />
+                    </div>
+                    {scanning ? (
+                        <button
+                            type="button"
+                            onClick={stopScan}
+                            className="flex items-center gap-2 px-5 py-3 bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg font-semibold text-sm hover:bg-red-500/30 transition-all"
+                        >
+                            <WifiOff className="w-4 h-4" />
+                            Stop
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={startScan}
+                            className="flex items-center gap-2 px-5 py-3 bg-[#74CD25]/15 text-[#74CD25] border border-[#74CD25]/40 rounded-lg font-semibold text-sm hover:bg-[#74CD25]/25 transition-all"
+                        >
+                            <Wifi className="w-4 h-4" />
+                            Scan NFC
+                        </button>
+                    )}
+                </div>
+
+                {/* Scanning indicator */}
+                {scanning && (
+                    <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-[#74CD25]/10 border border-[#74CD25]/20">
+                        <div className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#74CD25] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#74CD25]"></span>
+                        </div>
+                        <span className="text-sm text-[#74CD25] font-medium">Menunggu scan kartu NFC... Tempelkan kartu ke reader</span>
+                    </div>
+                )}
+
+                {/* Success indicator */}
+                {nfcId && !scanning && (
+                    <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="text-sm text-emerald-400 font-medium">Kartu NFC berhasil terbaca</span>
+                    </div>
+                )}
+            </div>
+
             <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
