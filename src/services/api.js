@@ -3,7 +3,8 @@ import Cookies from 'js-cookie';
 import { API_BASE_URL } from '../config/apiConfig';
 
 const api = axios.create({
-    baseURL: API_BASE_URL
+    baseURL: API_BASE_URL,
+    withCredentials: true
 });
 
 // Add request interceptor to include token in all requests
