@@ -12,28 +12,20 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined
-          if (id.includes('recharts')) return 'vendor-charts'
-          if (id.includes('@react-google-maps') || id.includes('leaflet') || id.includes('maplibre-gl')) return 'vendor-maps'
-          if (id.includes('mqtt')) return 'vendor-mqtt'
-          if (id.includes('xlsx')) return 'vendor-xlsx'
-          if (id.includes('lucide-react')) return 'vendor-icons'
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) return 'vendor-react'
-          return 'vendor'
         }
       }
     }
   },
   server: {
     host: true,
-    allowedHosts: ['fms.devraffi.my.id'],
+    allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:6969',
+        target: 'https://backendfms.devraffi.my.id',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:6969',
+        target: 'https://backendfms.devraffi.my.id',
         changeOrigin: true,
       },
       '/google-tiles': {
