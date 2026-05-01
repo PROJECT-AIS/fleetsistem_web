@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import ChatOverlay from '../../shared/ChatOverlay'
 
 const NAV_ITEMS = [
   { type: 'link', path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -184,6 +185,8 @@ export default function SideBar() {
                   )}
                 </button>
 
+                
+
                 {isSidebarOpen && openGroups[item.id] && (
                   <div className="mt-2 flex flex-col gap-2 pl-2">
                     {item.children.map((child) => {
@@ -212,6 +215,8 @@ export default function SideBar() {
             )
           })}
         </nav>
+
+        <ChatOverlay isSidebarOpen={isSidebarOpen} />
       </div>
     </div>
   )

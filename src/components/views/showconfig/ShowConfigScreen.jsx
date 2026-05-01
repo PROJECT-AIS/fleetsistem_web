@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
@@ -894,9 +895,18 @@ export default function ShowConfigScreen({
     pageDescription = "Lihat dan kelola data konfigurasi yang sudah tersimpan.",
     visibleTabs = null,
 }) {
+    const [searchParams, setSearchParams] = useSearchParams();
     const tabs = visibleTabs?.length ? TABS.filter((tab) => visibleTabs.includes(tab.id)) : TABS;
     const initialTab = tabs.some((tab) => tab.id === defaultTab) ? defaultTab : tabs[0]?.id || "alat";
     const [activeTab, setActiveTab] = useState(initialTab);
+
+    // Update active tab from query param
+    useEffect(() => {
+        const tabParam = searchParams.get("tab");
+        if (tabParam && tabs.some(t => t.id === tabParam)) {
+            setActiveTab(tabParam);
+        }
+    }, [searchParams, tabs]);
     const [loading, setLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ open: false, item: null, type: "" });
     const [toast, setToast] = useState(null);

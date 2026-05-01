@@ -986,11 +986,11 @@ export default function ConfigScreen({
 
             <div className="bg-[#343538] rounded-xl p-6 min-h-[500px]">
                 {parameterView === "shift-code" && (
-                    <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={manageHref} />
+                    <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} />
                 )}
 
                 {parameterView === "material-type" && (
-                    <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={manageHref} />
+                    <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} />
                 )}
 
                 {!parameterView && activeTab === "kalibrasi" && (
@@ -999,7 +999,7 @@ export default function ConfigScreen({
                         alatList={alatList}
                         rows={kalibrasiRows}
                         onSaved={loadKalibrasiData}
-                        manageHref={manageHref}
+                        manageHref={`${manageHref}?tab=kalibrasi`}
                     />
                 )}
 
@@ -1022,19 +1022,19 @@ export default function ConfigScreen({
                             </div>
                         )}
                         {activeInputTab === "shift-code" && (
-                            <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={manageHref} />
+                            <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} />
                         )}
                         {activeInputTab === "material-type" && (
-                            <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={manageHref} />
+                            <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} />
                         )}
                         {activeInputTab === "alat" && (
-                            <InputDataAlat showToast={showToast} rows={alatRows} onSaved={loadAlatData} manageHref={manageHref} />
+                            <InputDataAlat showToast={showToast} rows={alatRows} onSaved={loadAlatData} manageHref={`${manageHref}?tab=alat`} />
                         )}
                         {activeInputTab === "operator" && (
-                            <InputDataOperator showToast={showToast} rows={operatorRows} onSaved={loadOperatorData} manageHref={manageHref} />
+                            <InputDataOperator showToast={showToast} rows={operatorRows} onSaved={loadOperatorData} manageHref={`${manageHref}?tab=operator`} />
                         )}
                         {activeInputTab === "lokasi" && (
-                            <InputDataLokasi showToast={showToast} rows={lokasiRows} onSaved={loadLokasiData} manageHref={manageHref} />
+                            <InputDataLokasi showToast={showToast} rows={lokasiRows} onSaved={loadLokasiData} manageHref={`${manageHref}?tab=lokasi`} />
                         )}
                     </div>
                 )}

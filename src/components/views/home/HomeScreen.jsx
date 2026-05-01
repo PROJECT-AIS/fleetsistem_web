@@ -13,23 +13,13 @@ import {
   UserRound,
   WifiOff,
   X,
-  MessageSquare,
-  Send,
-  Headset,
-  Loader2,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageLayout from "../../layout/PageLayout";
 import GoogleMap from "../../utils/maps/GoogleMap";
-import {
-  GPS_PATH_DEFAULT,
-  STATUS_ALAT,
-  STATUS_DEVICE,
-  TOTAL_PRODUKSI,
-  KONSUMSI_BBM,
-} from "../../../data/vehicleData";
 import { influxService } from "../../../services/influxService";
-import { publishToTopic } from "../../../utils/mqttActions";
+import { dataTripService } from "../../../services/configService";
+import { TOTAL_PRODUKSI } from "../../../data/vehicleData";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -85,132 +75,6 @@ const ProductionBadge = React.memo(({ title, value }) => (
   </div>
 ));
 
-const ChatOverlay = ({ selectedVehicle }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [chatType, setChatType] = useState("broadcast"); // broadcast | device
-
-  useEffect(() => {
-    if (selectedVehicle) setChatType("device");
-    else setChatType("broadcast");
-  }, [selectedVehicle]);
-
-  const handleSend = async () => {
-    if (!message.trim() || isSending) return;
-    setIsSending(true);
-
-    try {
-      const topic = chatType === "broadcast" 
-        ? "fms/chat" 
-        : `fms/${selectedVehicle?.vehicleId || selectedVehicle?.idFms || selectedVehicle?.id}/chat`;
-      
-      const payload = {
-        message: message.trim(),
-        sender: "Web Admin",
-        timestamp: new Date().toISOString(),
-        type: chatType
-      };
-
-      await publishToTopic(topic, payload);
-      setMessage("");
-      setIsOpen(false);
-    } catch (error) {
-      console.error("Failed to send chat:", error);
-      alert("Gagal mengirim pesan chat");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const bottomClass = selectedVehicle ? "bottom-[260px]" : "bottom-6";
-
-  return (
-    <div className={cn("absolute left-6 z-[60] transition-all duration-500", bottomClass)}>
-      {isOpen ? (
-        <div className="mb-4 w-80 overflow-hidden rounded-[24px] border border-white/20 bg-[#2d2e32]/95 p-4 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#39ff14]/20 text-[#39ff14]">
-                <Headset className="h-4 w-4" />
-              </div>
-              <span className="text-sm font-bold text-white uppercase tracking-wider">Chat Operator</span>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="mb-4 flex gap-2">
-            <button
-              onClick={() => setChatType("broadcast")}
-              className={cn(
-                "flex-1 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all",
-                chatType === "broadcast" ? "bg-[#39ff14] text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
-              )}
-            >
-              BROADCAST
-            </button>
-            <button
-              onClick={() => {
-                if (!selectedVehicle) {
-                  alert("Silakan pilih kendaraan di peta terlebih dahulu untuk mengirim pesan spesifik.");
-                  return;
-                }
-                setChatType("device");
-              }}
-              className={cn(
-                "flex-1 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all",
-                chatType === "device" ? "bg-[#39ff14] text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
-              )}
-            >
-              SPECIFIC DEVICE
-            </button>
-          </div>
-
-          {chatType === "device" && selectedVehicle && (
-            <div className="mb-3 rounded-lg bg-[#39ff14]/10 px-3 py-2 border border-[#39ff14]/20">
-              <div className="text-[10px] text-[#39ff14] font-bold uppercase">Target Device</div>
-              <div className="text-xs text-white font-medium">{selectedVehicle.noPlat || selectedVehicle.idFms}</div>
-            </div>
-          )}
-
-          <div className="relative">
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Tulis pesan ke operator..."
-              className="h-24 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-white placeholder:text-gray-500 focus:border-[#39ff14]/50 focus:outline-none transition-all pointer-events-auto"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={isSending || !message.trim()}
-              className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-lg bg-[#39ff14] text-black shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:grayscale pointer-events-auto"
-            >
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "group flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 bg-[#35363a]/90 text-white shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95 pointer-events-auto",
-          isOpen && "border-[#39ff14] bg-black text-[#39ff14]"
-        )}
-      >
-        <MessageSquare className="h-6 w-6 transition-transform group-hover:rotate-12" />
-      </button>
-    </div>
-  );
-};
 const ProductionItem = React.memo(({ label, value, tone }) => (
   <div className="flex min-w-[200px] flex-1 overflow-hidden rounded-full bg-[#21362c] shadow-md">
     <div className="flex flex-1 items-center justify-center bg-[#2f3d37] px-3 py-1.5 text-center text-[13px] font-extrabold text-white">
@@ -534,7 +398,6 @@ const VehicleTooltip = React.memo(({ vehicle, position }) => {
 });
 
 const HomeScreen = () => {
-  const gpsPath = useMemo(() => GPS_PATH_DEFAULT, []);
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [hoveredVehicle, setHoveredVehicle] = useState(null);
@@ -544,6 +407,7 @@ const HomeScreen = () => {
 
   const [influxSummary, setInfluxSummary] = useState(null);
   const [influxVehicles, setInfluxVehicles] = useState([]);
+  const [realTripHistory, setRealTripHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAnimated, setHasAnimated] = useState(false);
   const hasInfluxVehicles = influxVehicles.length > 0;
@@ -589,7 +453,6 @@ const HomeScreen = () => {
   }, [fetchDashboardData]);
 
   const vehicleData = useMemo(() => {
-    if (influxVehicles.length === 0) return [];
     return influxVehicles.map(v => ({
       ...v,
       image: '/assets/selected-vehicle.png',
@@ -639,6 +502,38 @@ const HomeScreen = () => {
     return () => clearInterval(interval);
   }, [selectedVehicle?.id]);
 
+  // Fetch real trip history for the selected vehicle
+  useEffect(() => {
+    if (!selectedVehicle?.id) {
+        setRealTripHistory([]);
+        return;
+    }
+
+    const fetchTripHistory = async () => {
+      try {
+        const res = await dataTripService.getAll();
+        if (res.data?.ok && Array.isArray(res.data.data)) {
+            // Filter by vehicle ID (matching vehicle_id from influx with idAlat from MySQL)
+            const filtered = res.data.data
+                .filter(trip => trip.idAlat === selectedVehicle.id)
+                .slice(0, 4) // Show latest 4
+                .map(trip => ({
+                    id: trip.id,
+                    location: trip.lokasiFinish || trip.lokasiStart || "Unknown Location",
+                    time: trip.waktuFinish || trip.waktuStart || "-"
+                }));
+            setRealTripHistory(filtered);
+        }
+      } catch (error) {
+        console.error("Error fetching trip history:", error);
+      }
+    };
+
+    fetchTripHistory();
+    const interval = setInterval(fetchTripHistory, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, [selectedVehicle?.id]);
+
   const currentVehicle = useMemo(() => {
     if (!selectedVehicle) return null;
     return filteredVehicleData.find((v) => v.id === selectedVehicle.id)
@@ -646,15 +541,7 @@ const HomeScreen = () => {
       || selectedVehicle;
   }, [selectedVehicle, filteredVehicleData, vehicleData]);
 
-  const tripHistory = useMemo(
-    () =>
-      gpsPath.map((point, idx) => ({
-        id: idx + 1,
-        location: `Lat: ${point[0].toFixed(5)}, Lng: ${point[1].toFixed(5)}`,
-        time: `Titik #${idx + 1}`,
-      })),
-    [gpsPath]
-  );
+
 
   const handleVehicleClick = useCallback((vehicle) => {
     setSelectedVehicle((prev) => {
@@ -746,32 +633,37 @@ const HomeScreen = () => {
 
   const deviceItems = useMemo(
     () => [
-      { icon: Power, value: influxSummary?.status_device?.on || STATUS_DEVICE.on, label: "ON", accent: "text-[#39ff14]" },
+      { icon: Power, value: influxSummary?.status_device?.on || 0, label: "ON", accent: "text-[#39ff14]" },
       {
         icon: AlertTriangle,
-        value: influxSummary?.status_device?.lossCoordinate || STATUS_DEVICE.lossCoordinate,
+        value: influxSummary?.status_device?.lossCoordinate || 0,
         label: "Loss Coordinate",
         accent: "text-[#ffc107]",
       },
-      { icon: WifiOff, value: influxSummary?.status_device?.off || STATUS_DEVICE.off, label: "OFF", accent: "text-[#ff3131]" },
-      { icon: Monitor, value: influxSummary?.status_device?.total || STATUS_DEVICE.total, label: "Total", accent: "text-white" },
+      { icon: WifiOff, value: influxSummary?.status_device?.off || 0, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Monitor, value: influxSummary?.status_device?.total || 0, label: "Total", accent: "text-white" },
     ],
     [influxSummary]
   );
 
   const equipmentItems = useMemo(
     () => [
-      { icon: Truck, value: influxSummary?.status_alat?.on || STATUS_ALAT.on, label: "ON", accent: "text-[#39ff14]" },
-      { icon: Truck, value: influxSummary?.status_alat?.passive || STATUS_ALAT.passive, label: "Passive", accent: "text-[#ffc107]" },
-      { icon: Truck, value: influxSummary?.status_alat?.off || STATUS_ALAT.off, label: "OFF", accent: "text-[#ff3131]" },
-      { icon: Truck, value: influxSummary?.status_alat?.total || STATUS_ALAT.total, label: "Total", accent: "text-white" },
+      { icon: Truck, value: influxSummary?.status_alat?.on || 0, label: "ON", accent: "text-[#39ff14]" },
+      { icon: Truck, value: influxSummary?.status_alat?.passive || 0, label: "Passive", accent: "text-[#ffc107]" },
+      { icon: Truck, value: influxSummary?.status_alat?.off || 0, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Truck, value: influxSummary?.status_alat?.total || 0, label: "Total", accent: "text-white" },
     ],
     [influxSummary]
   );
 
   const produksiItems = useMemo(
     () => {
-      const base = (influxSummary?.produksi_items && influxSummary.produksi_items.length > 0) ? influxSummary.produksi_items : TOTAL_PRODUKSI;
+      // Use real data from influxSummary if available, 
+      // otherwise show the labels from TOTAL_PRODUKSI but with 0 value
+      const base = (influxSummary?.produksi_items && influxSummary.produksi_items.length > 0) 
+        ? influxSummary.produksi_items 
+        : TOTAL_PRODUKSI.map(item => ({ ...item, value: 0 }));
+
       return base.map((item) => ({
         ...item,
         tone: item.label.includes("OB")
@@ -856,7 +748,7 @@ const HomeScreen = () => {
                     xKey="day"
                     hasAnimated={hasAnimated}
                   />
-                  <LastTripCard tripHistory={tripHistory} />
+                  <LastTripCard tripHistory={realTripHistory} />
                 </div>
               </div>
             ) : null}
@@ -875,7 +767,7 @@ const HomeScreen = () => {
             />
           ) : null}
           
-          <ChatOverlay selectedVehicle={selectedVehicle} />
+
         </div>
       {/* </div> */}
 

@@ -102,3 +102,10 @@ export const pengawasService = {
     },
     delete: (id) => api.delete(`/pengawas/${id}`)
 };
+
+// ===================== DATA TRIP =====================
+export const dataTripService = {
+    getAll: () => api.get('/datatrip'),
+    getById: (id) => api.get(`/datatrip/${id}`),
+    create: (data) => api.post('/datatrip', data)
+};
