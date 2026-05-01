@@ -658,11 +658,15 @@ const HomeScreen = () => {
 
   const produksiItems = useMemo(
     () => {
-      // Use real data from influxSummary if available, 
-      // otherwise show the labels from TOTAL_PRODUKSI but with 0 value
-      const base = (influxSummary?.produksi_items && influxSummary.produksi_items.length > 0) 
-        ? influxSummary.produksi_items 
-        : TOTAL_PRODUKSI.map(item => ({ ...item, value: 0 }));
+      // ALWAYS use standard labels from TOTAL_PRODUKSI template
+      // and only fill values from influxSummary if the labels match.
+      const base = TOTAL_PRODUKSI.map(template => {
+        const realData = influxSummary?.produksi_items?.find(item => item.label === template.label);
+        return {
+          ...template,
+          value: realData ? realData.value : 0
+        };
+      });
 
       return base.map((item) => ({
         ...item,
