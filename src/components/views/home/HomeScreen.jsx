@@ -18,8 +18,9 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import PageLayout from "../../layout/PageLayout";
 import GoogleMap from "../../utils/maps/GoogleMap";
 import { influxService } from "../../../services/influxService";
-import { dataTripService } from "../../../services/configService";
+import { dataTripService, alatService } from "../../../services/configService";
 import { TOTAL_PRODUKSI } from "../../../data/vehicleData";
+import { resolveBackendUrl } from "../../../config/apiConfig";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -407,6 +408,7 @@ const HomeScreen = () => {
 
   const [influxSummary, setInfluxSummary] = useState(null);
   const [influxVehicles, setInfluxVehicles] = useState([]);
+  const [registeredAlat, setRegisteredAlat] = useState([]);
   const [realTripHistory, setRealTripHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAnimated, setHasAnimated] = useState(false);
@@ -421,11 +423,17 @@ const HomeScreen = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [summaryRes, vehiclesRes] = await Promise.all([
+      const [summaryRes, vehiclesRes, alatRes] = await Promise.all([
         influxService.getSummary(),
-        influxService.getVehicles()
+        influxService.getVehicles(),
+        alatService.getAll()
       ]);
+      
       setInfluxSummary(summaryRes.data);
+      
+      if (alatRes.data?.ok && Array.isArray(alatRes.data.data)) {
+        setRegisteredAlat(alatRes.data.data);
+      }
       
       // Preserve existing fuel data when updating vehicles
       setInfluxVehicles(prev => {
@@ -453,13 +461,21 @@ const HomeScreen = () => {
   }, [fetchDashboardData]);
 
   const vehicleData = useMemo(() => {
-    return influxVehicles.map(v => ({
-      ...v,
-      image: '/assets/selected-vehicle.png',
-      name: v.name || v.id,
-      plateNumber: v.plateNumber || v.id,
-    }));
-  }, [influxVehicles]);
+    // Whitelist of allowed vehicle IDs (idFms) from MySQL registration
+    const allowedFmsIds = new Set(registeredAlat.map(a => a.idFms));
+
+    return influxVehicles
+      .filter(v => allowedFmsIds.has(v.id)) // Filter Influx data by MySQL registration
+      .map(v => {
+        const registration = registeredAlat.find(a => a.idFms === v.id);
+        return {
+          ...v,
+          image: registration?.gambar ? resolveBackendUrl(registration.gambar) : '/assets/selected-vehicle.png',
+          name: registration?.noPlat || v.name || v.id,
+          plateNumber: registration?.noPlat || v.plateNumber || v.id,
+        };
+      });
+  }, [influxVehicles, registeredAlat]);
 
   const normalizedVehicleSearch = vehicleSearch.trim().toLowerCase();
 

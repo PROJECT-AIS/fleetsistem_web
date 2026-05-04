@@ -100,9 +100,13 @@ const PREVIEW_TABLES = {
     alat: {
         title: "Data Equipment Tersimpan",
         columns: [
-            { key: "idFms", label: "ID FMS" },
-            { key: "noPlat", label: "No Plat" },
+            { key: "idFms", label: "ID Device (FMS)" },
+            { key: "noUnit", label: "Nomor Unit" },
             { key: "jenisAlat", label: "Jenis Alat" },
+            { key: "merk", label: "Merek" },
+            { key: "kapasitasMuat", label: "Max Load (TON)" },
+            { key: "kapasitasTangki", label: "Fuel Capacity (L)" },
+            { key: "tahunManufaktur", label: "Year" },
             { key: "status", label: "Status" },
         ],
     },
@@ -114,6 +118,7 @@ const PREVIEW_TABLES = {
             { key: "jabatan", label: "Jabatan" },
             { key: "divisi", label: "Divisi" },
             { key: "noTelp", label: "No. Telepon" },
+            { key: "alamat", label: "Alamat" },
             { key: "idCardNfc", label: "ID Card NFC" },
         ],
     },
@@ -121,6 +126,7 @@ const PREVIEW_TABLES = {
         title: "Data Location Tersimpan",
         columns: [
             { key: "name", label: "Nama Lokasi" },
+            { key: "type", label: "Type" },
             { key: "latitude", label: "Latitude" },
             { key: "longitude", label: "Longitude" },
             { key: "radius", label: "Radius" },
@@ -249,7 +255,7 @@ const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/param
                     name="alatId"
                     value={form.alatId}
                     onChange={handleChange}
-                    options={alatList.map(a => ({ value: a.id, label: `${a.idFms} - ${a.noPlat}` }))}
+                    options={alatList.map(a => ({ value: a.id, label: `${a.idFms} - ${a.noUnit}` }))}
                     required
                 />
                 <FormInput label="Empty (Nilai Kosong)" name="empty" value={form.empty} onChange={handleChange} type="number" placeholder="0" required />
@@ -280,18 +286,19 @@ const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/param
 
 // Input Data Alat Component
 const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
-    const [form, setForm] = useState({ idFms: "", noPlat: "", jenisAlat: "", detailAlat: "", status: "Aktif", gambar: null });
-    const [previewImage, setPreviewImage] = useState(null);
+    const [form, setForm] = useState({ 
+        idFms: "", 
+        noUnit: "", 
+        jenisAlat: "", 
+        merk: "", 
+        kapasitasMuat: "", 
+        kapasitasTangki: "", 
+        tahunManufaktur: "", 
+        status: "Aktif" 
+    });
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setForm({ ...form, gambar: file });
-            setPreviewImage(URL.createObjectURL(file));
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -299,8 +306,16 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
         try {
             await alatService.create(form);
             showToast("Data alat berhasil disimpan", "success");
-            setForm({ idFms: "", noPlat: "", jenisAlat: "", detailAlat: "", status: "Aktif", gambar: null });
-            setPreviewImage(null);
+            setForm({ 
+                idFms: "", 
+                noUnit: "", 
+                jenisAlat: "", 
+                merk: "", 
+                kapasitasMuat: "", 
+                kapasitasTangki: "", 
+                tahunManufaktur: "", 
+                status: "Aktif" 
+            });
             onSaved?.();
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menyimpan data alat", "error");
@@ -312,39 +327,21 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput label="ID Alat FMS" name="idFms" value={form.idFms} onChange={handleChange} placeholder="FMS-001" required />
-                <FormInput label="Nomor Plat" name="noPlat" value={form.noPlat} onChange={handleChange} placeholder="DD 1234 AB" required />
-                <FormSelect label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange}
-                    options={[
-                        { value: "Excavator", label: "Excavator" },
-                        { value: "Dump Truck", label: "Dump Truck" },
-                        { value: "Bulldozer", label: "Bulldozer" },
-                        { value: "Loader", label: "Loader" },
-                        { value: "Grader", label: "Grader" },
-                    ]} required />
+                <FormInput label="ID Device (FMS)" name="idFms" value={form.idFms} onChange={handleChange} placeholder="FMS-001" required />
+                <FormInput label="Nomor Unit" name="noUnit" value={form.noUnit} onChange={handleChange} placeholder="ABC-DT-001" required />
+                <FormInput label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange} placeholder="DUMP TRUCK 10 WHEEL" required />
+                <FormInput label="Merek" name="merk" value={form.merk} onChange={handleChange} placeholder="SCANIA / VOLVO" />
+                <FormInput label="Kapasitas Muat Maksimum (TON)" name="kapasitasMuat" value={form.kapasitasMuat} onChange={handleChange} type="number" placeholder="30" />
+                <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="400" />
+                <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={handleChange} type="number" placeholder="2024" />
                 <FormSelect label="Status" name="status" value={form.status} onChange={handleChange}
                     options={[
                         { value: "Aktif", label: "Aktif" },
                         { value: "Maintenance", label: "Maintenance" },
                         { value: "Non-Aktif", label: "Non-Aktif" },
                     ]} required />
-                <div className="md:col-span-2">
-                    <label className="text-sm text-gray-400 block mb-1.5">Detail Alat</label>
-                    <textarea name="detailAlat" value={form.detailAlat} onChange={handleChange} placeholder="Deskripsi detail..." rows={3}
-                        className="w-full bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none resize-none" />
-                </div>
             </div>
-            <div className="flex flex-col gap-2">
-                <label className="text-sm text-gray-400">Gambar Alat</label>
-                <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 px-4 py-2.5 bg-[#4a4b4d] text-white rounded-lg cursor-pointer hover:bg-[#5a5b5d] transition-colors">
-                        <Upload className="w-4 h-4" />
-                        Pilih Gambar
-                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                    </label>
-                    {previewImage && <img src={previewImage} alt="Preview" className="w-20 h-20 object-cover rounded-lg border border-[#4a4b4d]" />}
-                </div>
-            </div>
+            
             <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

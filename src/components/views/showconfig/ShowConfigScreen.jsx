@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch } from "lucide-react";
+import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch, Wifi, WifiOff, CreditCard, Check } from "lucide-react";
+import { useNfcScan } from "../../../hooks/useNfcScan";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
@@ -220,43 +221,45 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, itemName }) => {
 // ===================== EDIT MODALS =====================
 
 // Edit Alat Modal
-const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
-    const [form, setForm] = useState({ idFms: "", noPlat: "", jenisAlat: "", detailAlat: "", status: "Aktif", gambar: null });
+// Edit Alat Modal
+const EditAlatModal = ({ isOpen, onClose, item, showToast, onSuccess }) => {
+    const [form, setForm] = useState({ 
+        idFms: "", 
+        noUnit: "", 
+        jenisAlat: "", 
+        merk: "", 
+        kapasitasMuat: "", 
+        kapasitasTangki: "", 
+        tahunManufaktur: "", 
+        status: "Aktif" 
+    });
     const [loading, setLoading] = useState(false);
-    const [previewImage, setPreviewImage] = useState(null);
 
     useEffect(() => {
         if (item) {
             setForm({
                 idFms: item.idFms || "",
-                noPlat: item.noPlat || "",
+                noUnit: item.noUnit || "",
                 jenisAlat: item.jenisAlat || "",
-                detailAlat: item.detailAlat || "",
+                merk: item.merk || "",
+                kapasitasMuat: item.kapasitasMuat || "",
+                kapasitasTangki: item.kapasitasTangki || "",
+                tahunManufaktur: item.tahunManufaktur || "",
                 status: item.status || "Aktif",
-                gambar: null
             });
-            setPreviewImage(item.gambar ? resolveBackendUrl(item.gambar) : null);
         }
     }, [item]);
-
-    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setForm({ ...form, gambar: file });
-            setPreviewImage(URL.createObjectURL(file));
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
             await alatService.update(item.id, form);
-            onSave("Data alat berhasil diupdate");
+            showToast("Data alat berhasil diupdate", "success");
+            onSuccess();
             onClose();
         } catch (error) {
-            onSave(error.response?.data?.message || "Gagal update data alat", "error");
+            showToast(error.response?.data?.message || "Gagal mengupdate data alat", "error");
         } finally {
             setLoading(false);
         }
@@ -265,49 +268,44 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#343538] rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white">Edit Data Alat</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-2xl rounded-2xl bg-[#1e1f22] border border-[#343538] shadow-2xl overflow-hidden animate-fade-in">
+                <div className="flex items-center justify-between border-b border-[#343538] p-6 bg-[#2d2e32]">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-[#74CD25]/20 rounded-lg">
+                            <Truck className="w-5 h-5 text-[#74CD25]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white">Edit Data Alat</h3>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                        <X className="w-6 h-6" />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormInput label="ID Alat FMS" name="idFms" value={form.idFms} onChange={handleChange} disabled required />
-                        <FormInput label="Nomor Plat" name="noPlat" value={form.noPlat} onChange={handleChange} required />
-                        <FormSelect label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange}
-                            options={[
-                                { value: "Excavator", label: "Excavator" },
-                                { value: "Dump Truck", label: "Dump Truck" },
-                                { value: "Bulldozer", label: "Bulldozer" },
-                                { value: "Loader", label: "Loader" },
-                                { value: "Grader", label: "Grader" },
-                            ]} required />
-                        <FormSelect label="Status" name="status" value={form.status} onChange={handleChange}
+
+                <form onSubmit={handleSubmit} className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <FormInput label="ID Device (FMS)" name="idFms" value={form.idFms} onChange={(e) => setForm({ ...form, idFms: e.target.value })} required />
+                        <FormInput label="Nomor Unit" name="noUnit" value={form.noUnit} onChange={(e) => setForm({ ...form, noUnit: e.target.value })} required />
+                        <FormInput label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={(e) => setForm({ ...form, jenisAlat: e.target.value })} required />
+                        <FormInput label="Merk" name="merk" value={form.merk} onChange={(e) => setForm({ ...form, merk: e.target.value })} />
+                        <FormInput label="Kapasitas Muat Maksimum (TON)" name="kapasitasMuat" value={form.kapasitasMuat} onChange={(e) => setForm({ ...form, kapasitasMuat: e.target.value })} type="number" />
+                        <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={(e) => setForm({ ...form, kapasitasTangki: e.target.value })} type="number" />
+                        <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={(e) => setForm({ ...form, tahunManufaktur: e.target.value })} type="number" />
+                        <FormSelect label="Status" name="status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
                             options={[
                                 { value: "Aktif", label: "Aktif" },
                                 { value: "Maintenance", label: "Maintenance" },
                                 { value: "Non-Aktif", label: "Non-Aktif" },
                             ]} required />
                     </div>
-                    <div>
-                        <label className="text-sm text-gray-400 block mb-1.5">Detail Alat</label>
-                        <textarea name="detailAlat" value={form.detailAlat} onChange={handleChange} placeholder="Deskripsi detail..." rows={3}
-                            className="w-full bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none resize-none" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 px-4 py-2.5 bg-[#4a4b4d] text-white rounded-lg cursor-pointer hover:bg-[#5a5b5d] transition-colors">
-                            <Upload className="w-4 h-4" />
-                            Ganti Gambar
-                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                        </label>
-                        {previewImage && <img src={previewImage} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-[#4a4b4d]" />}
-                    </div>
-                    <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+
+                    <div className="mt-8 flex justify-end gap-3 border-t border-[#343538] pt-6">
+                        <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl text-gray-400 hover:text-white transition-all font-semibold">
+                            Batal
+                        </button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-[#74CD25] text-white font-bold hover:bg-[#5fa01c] transition-all disabled:opacity-50">
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -318,12 +316,14 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
 
 // Edit Operator Modal
 const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
-    const [form, setForm] = useState({ nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
+    const [form, setForm] = useState({ idOperator: "", nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
     const [loading, setLoading] = useState(false);
+    const { scanning, nfcId, error: nfcError, startScan, stopScan } = useNfcScan({ timeout: 30000 });
 
     useEffect(() => {
         if (item) {
             setForm({
+                idOperator: item.idOperator || "",
                 nama: item.nama || "",
                 noTelp: item.noTelp || "",
                 divisi: item.divisi || "",
@@ -333,6 +333,21 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
             });
         }
     }, [item]);
+
+    // Auto-fill NFC ID when scanned
+    useEffect(() => {
+        if (nfcId) {
+            setForm(prev => ({ ...prev, idCardNfc: nfcId }));
+            onSave(`Kartu NFC terdeteksi: ${nfcId}`, "success");
+        }
+    }, [nfcId, onSave]);
+
+    // Show error toast if NFC scan fails
+    useEffect(() => {
+        if (nfcError) {
+            onSave(nfcError, "error");
+        }
+    }, [nfcError, onSave]);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -361,6 +376,7 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} required />
                         <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} required />
                         <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} required />
                         <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
@@ -370,7 +386,6 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                                 { value: "Maintenance", label: "Maintenance" },
                                 { value: "HSE", label: "HSE" },
                             ]} required />
-                        <FormInput label="ID Card NFC" name="idCardNfc" value={form.idCardNfc} onChange={handleChange} />
                         <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
                             options={[
                                 { value: "Driver", label: "Driver" },
@@ -380,11 +395,71 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                             ]} required />
                         <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} />
                     </div>
+
+                    {/* NFC Scan Section */}
+                    <div className="rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                            <CreditCard className="w-5 h-5 text-[#74CD25]" />
+                            <h3 className="text-sm font-semibold text-white">Update ID Card NFC</h3>
+                        </div>
+
+                        <div className="flex items-end gap-3">
+                            <div className="flex-1">
+                                <input
+                                    type="text"
+                                    name="idCardNfc"
+                                    value={form.idCardNfc}
+                                    onChange={handleChange}
+                                    placeholder="Tekan Scan untuk mengganti kartu..."
+                                    className="w-full bg-[#1e1f22] text-white px-4 py-3 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors font-mono text-sm"
+                                />
+                            </div>
+                            {scanning ? (
+                                <button
+                                    type="button"
+                                    onClick={stopScan}
+                                    className="flex items-center gap-2 px-5 py-3 bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg font-semibold text-sm hover:bg-red-500/30 transition-all"
+                                >
+                                    <WifiOff className="w-4 h-4" />
+                                    Stop
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={startScan}
+                                    className="flex items-center gap-2 px-5 py-3 bg-[#74CD25]/15 text-[#74CD25] border border-[#74CD25]/40 rounded-lg font-semibold text-sm hover:bg-[#74CD25]/25 transition-all"
+                                >
+                                    <Wifi className="w-4 h-4" />
+                                    Scan NFC
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Scanning indicator */}
+                        {scanning && (
+                            <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-[#74CD25]/10 border border-[#74CD25]/20">
+                                <div className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#74CD25] opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-[#74CD25]"></span>
+                                </div>
+                                <span className="text-sm text-[#74CD25] font-medium">Menunggu scan kartu baru... Tempelkan kartu ke reader</span>
+                            </div>
+                        )}
+
+                        {/* Success indicator */}
+                        {nfcId && !scanning && (
+                            <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                <Check className="w-4 h-4 text-emerald-400" />
+                                <span className="text-sm text-emerald-400 font-medium">Kartu NFC baru berhasil terbaca</span>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -841,10 +916,13 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
 
 // Column configurations
 const alatColumns = [
-    { key: "idFms", label: "ID FMS" },
-    { key: "noPlat", label: "No Plat" },
+    { key: "idFms", label: "ID Device (FMS)" },
+    { key: "noUnit", label: "Nomor Unit" },
     { key: "jenisAlat", label: "Jenis Alat" },
-    { key: "detailAlat", label: "Detail" },
+    { key: "merk", label: "Merk" },
+    { key: "kapasitasMuat", label: "Max Load (TON)" },
+    { key: "kapasitasTangki", label: "Fuel Capacity (L)" },
+    { key: "tahunManufaktur", label: "Year" },
     { key: "status", label: "Status" },
 ];
 
@@ -862,10 +940,11 @@ const materialTypeColumns = [
 const operatorColumns = [
     { key: "idOperator", label: "ID Operator" },
     { key: "nama", label: "Nama" },
-    { key: "noTelp", label: "No Telepon" },
-    { key: "divisi", label: "Divisi" },
-    { key: "idCardNfc", label: "ID NFC" },
     { key: "jabatan", label: "Jabatan" },
+    { key: "divisi", label: "Divisi" },
+    { key: "noTelp", label: "No. HP" },
+    { key: "alamat", label: "Alamat" },
+    { key: "idCardNfc", label: "ID Card NFC" },
 ];
 
 const lokasiColumns = [
