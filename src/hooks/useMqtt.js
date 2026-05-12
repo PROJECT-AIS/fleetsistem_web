@@ -4,80 +4,171 @@ const MQTT_URL = 'wss://mqtt.aispektra.com:443';
 const DEFAULT_TOPIC = 'fms/+/data';
 const DEBUG_MQTT = import.meta.env.DEV && import.meta.env.VITE_DEBUG_MQTT === 'true';
 
+const normalizeTripStatus = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return 'end_trip';
+
+    if (
+        raw === 'on trip' ||
+        raw === 'on_trip' ||
+        raw === 'ontrip' ||
+        raw === 'start trip' ||
+        raw === 'start_trip' ||
+        raw === 'terbuka' ||
+        raw === 'aktif'
+    ) {
+        return 'on_trip';
+    }
+
+    if (
+        raw === 'end trip' ||
+        raw === 'end_trip' ||
+        raw === 'endtrip' ||
+        raw === 'close trip' ||
+        raw === 'close_trip' ||
+        raw === 'tertutup' ||
+        raw === 'selesai'
+    ) {
+        return 'end_trip';
+    }
+
+    if (raw.includes('on') && raw.includes('trip')) return 'on_trip';
+    if ((raw.includes('end') || raw.includes('close')) && raw.includes('trip')) return 'end_trip';
+
+    return 'unknown';
+};
+
 /**
  * Hook to manage MQTT connection and vehicle telemetry
  */
-export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true } = {}) => {
+export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData = { alat: [], operators: [] } } = {}) => {
     const [vehicles, setVehicles] = useState({});
     const [status, setStatus] = useState(enabled ? 'connecting' : 'idle');
     const clientRef = useRef(null);
 
+    // Keep reference data in a ref for use in processVehicleData without triggering re-renders
+    const refDataRef = useRef(referenceData);
+    useEffect(() => {
+        refDataRef.current = referenceData;
+    }, [referenceData]);
+
     const processVehicleData = useCallback((data) => {
         const vehicleId = data.vehicle_id || data.device_id || 'unknown';
-        
-        // Extract coordinates based on confirmed JSON structure: data.gps.lat and data.gps.lon
-        const lat = data.gps?.lat ?? data.lat ?? 0;
-        const lng = data.gps?.lon ?? data.gps?.lng ?? data.lon ?? data.lng ?? 0;
-        
-        // Extract heading: confirmed at data.imu.orientation.heading
-        const heading = data.imu?.orientation?.heading ?? data.imu?.heading ?? data.gps?.course ?? data.gps?.heading ?? 
-                         data.course ?? data.heading ?? 0;
+        const { alat, operators } = refDataRef.current;
 
-        // Format time for history - if not valid date, use current time
-        let displayTime = data.datetime?.best || data.datetime?.rtc || data.time || data.timestamp || new Date().toLocaleString();
-        
-        // If it's a BOOT time or similar, maybe append actual date
-        if (String(displayTime).includes('BOOT')) {
-            const now = new Date();
-            displayTime = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} (${displayTime})`;
+        // 1. GPS & Basic Info
+        const lat = data.gps?.lat ?? 0;
+        const lng = data.gps?.lon ?? 0;
+        const speedKph = data.gps?.speed_kph ?? 0;
+        const heading = data.imu?.orientation?.heading ?? data.gps?.course ?? 0;
+        const gpsValid = data.gps?.valid ?? false;
+
+        // 2. Map Operator via NFC UID
+        const nfcUid = data.nfc?.last_uid;
+        let operatorName = "Unidentified";
+        let operatorId = nfcUid || "-";
+
+        if (nfcUid) {
+            const foundOp = operators.find(op => op.nfcUid === nfcUid);
+            if (foundOp) {
+                operatorName = foundOp.nama;
+                operatorId = foundOp.id;
+            }
         }
 
+        // 3. Asset (Alat) Details Mapping
+        const assetInfo = alat.find(a => a.idFms === vehicleId);
+
+        // 4. Retase (Trip) Logic
+        const rawTripStatus = data.operator_input?.status_trip || data.status_trip || "End Trip";
+        const normalizedTripStatus = normalizeTripStatus(rawTripStatus);
+        const currentTripStatus = normalizedTripStatus === 'on_trip'
+            ? 'On Trip'
+            : normalizedTripStatus === 'end_trip'
+                ? 'End Trip'
+                : String(rawTripStatus || "End Trip").trim();
         setVehicles(prev => {
             const existing = prev[vehicleId] || {
                 history: [],
                 fuelHistory: [],
-                weeklyFuel: [] 
+                maxSpeedInTrip: 0,
+                lastTripStatus: 'End Trip',
+                tripPath: []
             };
 
-            const newPoint = { lat, lng, time: displayTime };
-            const newHistory = [...(existing.history || []), newPoint].slice(-100);
+            // Track max speed during "On Trip"
+            let newMaxSpeed = existing.maxSpeedInTrip || 0;
+            let newTripPath = [...(existing.tripPath || [])];
 
-            // Fuel history
-            const fuelVal = data.fuel?.volume_l ?? data.fuel?.level ?? 0;
-            const fuelPercent = data.fuel?.percent ?? data.fuel?.percentage ?? 0;
-            
+            if (normalizedTripStatus === "on_trip") {
+                if (speedKph > newMaxSpeed) newMaxSpeed = speedKph;
+                
+                // Add to trip path while on trip
+                if (gpsValid) {
+                    // Only add if coordinate changed significantly or enough time passed
+                    const lastPoint = newTripPath[newTripPath.length - 1];
+                    if (!lastPoint || Math.abs(lastPoint.lat - lat) > 0.00001 || Math.abs(lastPoint.lng - lng) > 0.00001) {
+                        newTripPath.push({ lat, lng });
+                    }
+                }
+            }
+
+            // Detect Trip Completion (On Trip -> End Trip)
+            if (existing.lastTripStatus === "On Trip" && normalizedTripStatus === "end_trip") {
+                if (DEBUG_MQTT) console.log(`[useMqtt] RETASE transition detected for ${vehicleId}.`);
+
+                // Increment session trip count only for UI display.
+                existing.tripCount = (existing.tripCount || 0) + 1;
+
+                // Note: We don't clear newTripPath immediately here so user can see the last route
+                // Reset max speed for next trip
+                newMaxSpeed = 0;
+            }
+
+            // If starting a NEW trip, clear the old path
+            if (existing.lastTripStatus === "End Trip" && normalizedTripStatus === "on_trip") {
+                newTripPath = [{ lat, lng }];
+            }
+
+            // Fuel history update
+            const fuelVal = data.fuel?.volume_l ?? 0;
+            let displayTime = data.datetime?.best || new Date().toLocaleString();
             const timeStr = String(displayTime).includes(' ') ? displayTime.split(' ')[1] : String(displayTime);
+            
             const newFuelHistory = [...(existing.fuelHistory || []), {
                 time: timeStr, 
                 value: fuelVal
             }].slice(-30);
+
+            const newHistory = [...(existing.history || []), { lat, lng, time: displayTime }].slice(-100);
 
             return {
                 ...prev,
                 [vehicleId]: {
                     ...data,
                     id: vehicleId,
-                    name: vehicleId,
-                    lat: lat,
-                    lng: lng,
-                    status: (data.vehicle?.engine_on || data.vehicle?.moving || data.engine === 'on' || data.moving) ? 'online' : 'offline',
-                    image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=150&h=100&fit=crop",
-                    fuelLevel: fuelPercent,
-                    speed: data.gps?.speed_kph ?? data.speed ?? 0,
-                    heading: heading,
+                    name: assetInfo?.noPlat || vehicleId,
+                    lat,
+                    lng,
+                    gpsValid,
+                    status: (data.vehicle?.engine_on || data.vehicle?.moving || speedKph > 0) ? 'online' : 'offline',
+                    image: assetInfo?.gambar ? assetInfo.gambar : "/assets/selected-vehicle.png",
+                    fuelLevel: data.fuel?.percent || 0,
+                    speed: speedKph,
+                    heading,
                     history: newHistory,
                     fuelData: newFuelHistory,
-                    operatorName: data.operator || "MQTT Operator",
-                    plateNumber: vehicleId,
-                    jabatan: "Operator",
-                    divisi: "Logistics",
+                    operatorName,
+                    operatorId,
+                    plateNumber: assetInfo?.noPlat || vehicleId,
+                    maxSpeedInTrip: newMaxSpeed,
+                    lastTripStatus: currentTripStatus,
+                    tripPath: newTripPath.slice(-500),
+                    tripCount: existing.tripCount || 0,
+                    metadata: assetInfo || {}
                 }
             };
         });
-        
-        if (DEBUG_MQTT) {
-            console.log(`[useMqtt] Processed ${vehicleId}: lat=${lat}, lng=${lng}, heading=${heading}`);
-        }
     }, []);
 
     useEffect(() => {
@@ -93,18 +184,14 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true } = {}) => {
 
         let isActive = true;
         let client = null;
-
         setStatus('connecting');
 
         import('mqtt').then(({ default: mqtt }) => {
             if (!isActive) return;
 
-            if (DEBUG_MQTT) {
-                console.log(`Connecting to MQTT: ${MQTT_URL}`);
-            }
-
             client = mqtt.connect(MQTT_URL, {
                 clientId: 'ais_web_' + Math.random().toString(16).substring(2, 8),
+                protocolVersion: 4,
                 keepalive: 60,
                 clean: true,
                 reconnectPeriod: 2000,
@@ -113,27 +200,14 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true } = {}) => {
 
             client.on('connect', () => {
                 if (!isActive) return;
-                if (DEBUG_MQTT) {
-                    console.log('MQTT Connected');
-                }
                 setStatus('connected');
-                if (Array.isArray(topic)) {
-                    topic.forEach(t => client.subscribe(t));
-                } else {
-                    client.subscribe(topic);
-                }
+                client.subscribe(topic);
             });
 
             client.on('message', (receivedTopic, message) => {
                 if (!isActive) return;
-                const rawMessage = message.toString();
-                if (DEBUG_MQTT) {
-                    console.log(`MQTT Raw [${receivedTopic}]:`, rawMessage);
-                }
                 try {
-                    const data = JSON.parse(rawMessage);
-                    
-                    // Extract ID from topic if not in JSON
+                    const data = JSON.parse(message.toString());
                     let extractedId = data.vehicle_id || data.device_id;
                     if (!extractedId && receivedTopic.startsWith('fms/')) {
                         const parts = receivedTopic.split('/');
@@ -141,45 +215,22 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true } = {}) => {
                     }
 
                     if (extractedId) {
-                        // For FMS topics, we handle the data even if type is missing
                         processVehicleData({ ...data, vehicle_id: extractedId });
-                    } else {
-                        console.warn('MQTT Message skipped (no id found):', receivedTopic);
                     }
                 } catch (e) {
-                    console.error('Error parsing MQTT message:', e);
+                    console.error('MQTT parse error:', e);
                 }
             });
 
-            client.on('error', (err) => {
-                if (!isActive) return;
-                console.error('MQTT Error:', err);
-                setStatus('error');
-            });
-
-            client.on('close', () => {
-                if (!isActive) return;
-                if (DEBUG_MQTT) {
-                    console.log('MQTT Connection closed');
-                }
-                setStatus('offline');
-            });
-
+            client.on('error', () => setStatus('error'));
+            client.on('close', () => setStatus('offline'));
             clientRef.current = client;
-        }).catch((err) => {
-            if (!isActive) return;
-            console.error('MQTT module load error:', err);
-            setStatus('error');
-        });
+        }).catch(() => setStatus('error'));
 
         return () => {
             isActive = false;
-            if (client) {
-                client.end(true);
-            }
-            if (clientRef.current === client) {
-                clientRef.current = null;
-            }
+            if (client) client.end(true);
+            if (clientRef.current === client) clientRef.current = null;
         };
     }, [enabled, processVehicleData, topic]);
 

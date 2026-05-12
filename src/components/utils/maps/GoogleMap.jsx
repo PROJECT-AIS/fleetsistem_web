@@ -13,8 +13,8 @@ const containerStyle = {
 
 // Default center (Makassar)
 const defaultCenter = {
-    lat: -5.14,
-    lng: 119.43
+    lat: -5.1315,
+    lng: 119.5000
 };
 
 // Map options for satellite view with POI hidden
@@ -22,6 +22,10 @@ const mapOptions = {
     mapTypeId: 'hybrid', // satellite with labels
     disableDefaultUI: false,
     zoomControl: true,
+    scrollwheel: true,
+    gestureHandling: 'greedy',
+    disableDoubleClickZoom: false,
+    keyboardShortcuts: true,
     streetViewControl: false,
     mapTypeControl: false,
     fullscreenControl: false,
@@ -102,25 +106,24 @@ const GoogleMap = ({
         }
     }, []);
 
-    // Center map on selected vehicle with smooth animation
+    // Center map on selected vehicle and FOLLOW it if it moves
     useEffect(() => {
         if (mapRef.current && selectedVehicle) {
             const targetPosition = {
-                lat: selectedVehicle.lat,
-                lng: selectedVehicle.lng
+                lat: Number(selectedVehicle.lat),
+                lng: Number(selectedVehicle.lng)
             };
 
-            // Smoothly pan to the selected vehicle
+            // panTo is smoother for moving objects than setCenter
             mapRef.current.panTo(targetPosition);
 
-            // Optionally zoom in a bit when selecting
-            const currentZoom = mapRef.current.getZoom();
-            if (currentZoom < 15) {
+            // Zoom in only on initial selection
+            if (zoom < 15) {
                 mapRef.current.setZoom(15);
                 setZoom(15);
             }
         }
-    }, [selectedVehicle]);
+    }, [selectedVehicle?.lat, selectedVehicle?.lng, selectedVehicle?.id]);
 
     // Cache for rotated icons
     const iconCache = useRef({});
@@ -263,23 +266,42 @@ const GoogleMap = ({
             onUnmount={onUnmount}
             onZoomChanged={handleZoomChanged}
         >
-            {/* Vehicle Markers */}
+            {/* 1. Draw all Trip Polylines first (Bottom Layer) */}
+            {vehicles.map((vehicle) => (
+                (vehicle.tripPath && vehicle.tripPath.length > 1 && vehicle.lastTripStatus === "On Trip") && (
+                    <Polyline
+                        key={`path-${vehicle.id}`}
+                        path={vehicle.tripPath}
+                        options={{
+                            strokeColor: '#74CD25',
+                            strokeOpacity: selectedVehicle?.id === vehicle.id ? 1.0 : 0.7,
+                            strokeWeight: selectedVehicle?.id === vehicle.id ? 6 : 4,
+                            clickable: false,
+                            zIndex: selectedVehicle?.id === vehicle.id ? 100 : 50,
+                            geodesic: true
+                        }}
+                    />
+                )
+            ))}
+
+            {/* 2. Draw all Vehicle Markers (Top Layer) */}
             {vehicles.map((vehicle) => {
                 const isSelected = selectedVehicle?.id === vehicle.id;
                 return (
                     <Marker
-                        key={vehicle.id}
+                        key={`marker-${vehicle.id}`}
                         position={{ lat: vehicle.lat, lng: vehicle.lng }}
                         icon={createMarkerIcon(isSelected, vehicle.heading)}
                         onClick={() => handleMarkerClick(vehicle)}
                         onMouseOver={(e) => handleMarkerMouseOver(vehicle, e)}
                         onMouseOut={handleMarkerMouseOut}
+                        zIndex={isSelected ? 1000 : 500}
                     />
                 );
             })}
 
-            {/* Polyline for selected vehicle path */}
-            {polylinePath.length > 1 && (
+            {/* 3. Historical Path for Selected Vehicle */}
+            {selectedVehicle && selectedVehicle.lastTripStatus !== "On Trip" && polylinePath.length > 1 && (
                 <Polyline
                     path={polylinePath}
                     options={polylineOptions}

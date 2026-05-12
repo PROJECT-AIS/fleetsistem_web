@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   AlertTriangle,
   ChevronDown,
@@ -20,6 +20,8 @@ import GoogleMap from "../../utils/maps/GoogleMap";
 import { influxService } from "../../../services/influxService";
 import { dataTripService, alatService } from "../../../services/configService";
 import { TOTAL_PRODUKSI } from "../../../data/vehicleData";
+import { useMqttContext } from "../../../context/mqttContextValue";
+import { useClickOutside } from "../../../hooks/useClickOutside";
 import { resolveBackendUrl } from "../../../config/apiConfig";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -34,30 +36,32 @@ const getFuelVolume = (vehicle) => {
 };
 
 const statusCardBase =
-  "flex min-w-0 items-center gap-2 rounded-[16px] border border-white/80 bg-[#3a3b3f] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]";
+  "flex h-full min-h-[96px] min-w-0 items-center gap-3 rounded-2xl border border-white/5 bg-[#2d2e32]/80 px-4 py-3 shadow-xl backdrop-blur-md transition-all hover:bg-[#2d2e32] hover:border-[#74CD25]/30";
 
 const StatusItem = React.memo(({ icon, value, label, accent, note }) => (
   <div className={statusCardBase}>
-    {React.createElement(icon, {
-      className: cn("h-9 w-9 flex-shrink-0", accent),
-      strokeWidth: 2.2,
-    })}
+    <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 shadow-inner", accent.replace('text-', 'bg-').replace(']', ']/10'))}>
+      {React.createElement(icon, {
+        className: cn("h-6 w-6", accent),
+        strokeWidth: 2.5,
+      })}
+    </div>
     <div className="min-w-0">
-      <div className={cn("text-[22px] font-black leading-none", accent)}>{value}</div>
-      <div className={cn("text-[12px] font-bold leading-none", accent === "text-white" ? "text-white" : accent)}>
+      <div className={cn("text-2xl font-black leading-none tracking-tighter", accent)}>{value}</div>
+      <div className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
         {label}
       </div>
-      {note ? <div className="mt-1 text-[11px] font-medium leading-none text-[#ffca28]">{note}</div> : null}
+      {note ? <div className="mt-1 text-[10px] font-bold leading-none text-[#ffca28] uppercase">{note}</div> : null}
     </div>
   </div>
 ));
 
 const StatusPanel = React.memo(({ title, items }) => (
-  <div className="min-w-0 flex-1 rounded-[24px] bg-[#35363a]/94 p-3 shadow-[0_18px_30px_rgba(0,0,0,0.22)] backdrop-blur-sm">
-    <div className="mb-2 rounded-[18px] bg-[#39ff14] px-4 py-1.5 text-center text-[18px] font-black tracking-tight text-black">
-      {title}
+  <div className="min-w-0 flex-1 rounded-[2rem] bg-[#343538]/90 p-4 shadow-2xl border border-white/5 backdrop-blur-xl">
+    <div className="mb-4 flex items-center justify-between px-2">
+        <h2 className="text-sm font-black tracking-[0.2em] text-[#74CD25] uppercase">{title}</h2>
     </div>
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid auto-rows-fr grid-cols-2 gap-3 2xl:grid-cols-4">
       {items.map((item) => (
         <StatusItem key={item.label} {...item} />
       ))}
@@ -66,31 +70,31 @@ const StatusPanel = React.memo(({ title, items }) => (
 ));
 
 const ProductionBadge = React.memo(({ title, value }) => (
-  <div className="w-[148px] overflow-hidden rounded-[12px] bg-[#2c493d] shadow-lg">
-    <div className="bg-[#1b2f27] px-3 py-1 text-[11px] font-bold text-[#4caf50] uppercase tracking-wider">
+  <div className="relative h-[104px] w-48 overflow-hidden rounded-2xl border border-white/5 bg-[#2d2e32] shadow-xl group">
+    <div className="absolute top-0 left-0 w-full h-1 bg-[#74CD25] opacity-50 group-hover:opacity-100 transition-opacity" />
+    <div className="bg-white/5 px-4 py-2 text-[10px] font-black text-[#74CD25] uppercase tracking-[0.15em]">
       {title}
     </div>
-    <div className="px-3 py-2 text-[20px] font-black text-white leading-tight">
+    <div className="px-4 py-3 text-2xl font-black text-white tracking-tighter leading-none">
       {value}
     </div>
   </div>
 ));
 
-const ProductionItem = React.memo(({ label, value, tone }) => (
-  <div className="flex min-w-[200px] flex-1 overflow-hidden rounded-full bg-[#21362c] shadow-md">
-    <div className="flex flex-1 items-center justify-center bg-[#2f3d37] px-3 py-1.5 text-center text-[13px] font-extrabold text-white">
+const ProductionItem = React.memo(({ label, value, toneColor }) => (
+  <div className="flex h-full min-h-[52px] min-w-0 items-center overflow-hidden rounded-full border border-[#74CD25]/20 bg-[#23373F]/90 shadow-lg shadow-black/20 transition-all hover:border-[#74CD25]/35">
+    <div className="flex flex-1 items-center px-4 py-2 text-[11px] font-black text-[#E5F2DB] uppercase tracking-widest break-words leading-tight">
       {label}
     </div>
-    <div
-      className={cn(
-        "flex min-w-[92px] items-center justify-center px-3 py-1.5 text-[13px] font-black text-white",
-        tone
-      )}
-    >
+    <div className={cn("m-1 flex min-w-[82px] items-center justify-center rounded-full px-4 py-1.5 text-sm font-black text-white shadow-md", toneColor)}>
       {formatNumber(value)}
     </div>
   </div>
 ));
+
+const bottomCardShellClass =
+  "pointer-events-auto h-[212px] min-w-0 overflow-hidden rounded-3xl border border-white/5 bg-[#2d2e32]/80 shadow-2xl backdrop-blur-xl";
+const bottomCardHeaderClass = "bg-gradient-to-r from-[#4A8516] to-[#5FA81E] px-5 py-2.5 text-center";
 
 const CustomChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -113,41 +117,77 @@ const VehicleSearchPanel = React.memo(
     onSelectVehicle,
     selectedVehicleId,
   }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const inputRef = useRef(null);
+    const panelRef = useClickOutside(() => {
+      setIsExpanded(false);
+      onClear();
+    }, isExpanded);
     const showResults = searchTerm.trim().length > 0;
     const visibleResults = results.slice(0, 6);
 
+    useEffect(() => {
+      if (isExpanded) {
+        inputRef.current?.focus();
+      }
+    }, [isExpanded]);
+
+    const handleSelectVehicle = useCallback((vehicle) => {
+      onSelectVehicle(vehicle);
+      setIsExpanded(false);
+      onClear();
+    }, [onClear, onSelectVehicle]);
+
+    const handleInputKeyDown = useCallback((event) => {
+      onKeyDown(event);
+      if (event.key === "Escape") {
+        setIsExpanded(false);
+        onClear();
+      }
+      if (event.key === "Enter") {
+        setIsExpanded(false);
+        onClear();
+      }
+    }, [onClear, onKeyDown]);
+
+    if (!isExpanded) {
+      return (
+        <div ref={panelRef} className="relative">
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#2d2e32]/90 text-white/75 shadow-2xl transition-all hover:border-[#74CD25]/40 hover:text-white hover:shadow-[#74CD25]/20"
+            onClick={() => setIsExpanded(true)}
+            title="Cari kendaraan"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        </div>
+      );
+    }
+
     return (
-      <div className="w-full max-w-[360px]">
+      <div ref={panelRef} className="w-full max-w-[360px]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
           <input
+            ref={inputRef}
             type="text"
             placeholder="Cari kendaraan berdasarkan vehicle_id..."
-            className="w-full rounded-[18px] border border-white/15 bg-[#2f3134]/92 py-3 pl-10 pr-11 text-sm font-medium text-white shadow-[0_14px_28px_rgba(0,0,0,0.22)] outline-none transition focus:border-[#7fff3f] focus:ring-2 focus:ring-[#7fff3f]/20"
+            className="w-full rounded-xl border border-white/10 bg-[#2d2e32]/90 py-3 pl-10 pr-4 text-xs font-bold text-white shadow-2xl outline-none transition-all focus:border-[#74CD25] focus:ring-4 focus:ring-[#74CD25]/10 placeholder:text-gray-600"
             value={searchTerm}
             onChange={(event) => onSearchChange(event.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={handleInputKeyDown}
           />
-          {searchTerm ? (
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 rounded-full p-1.5 text-white/65 transition hover:bg-white/10 hover:text-white"
-              onClick={onClear}
-              title="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
         </div>
 
         {showResults ? (
-          <div className="mt-2 overflow-hidden rounded-[20px] border border-white/12 bg-[#2f3134]/95 shadow-[0_18px_32px_rgba(0,0,0,0.24)] backdrop-blur-sm">
-            <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/60">
-              <span>Hasil Pencarian</span>
-              <span>{results.length} kendaraan</span>
+          <div className="mt-2 overflow-hidden rounded-2xl border border-white/5 bg-[#1e1f22]/95 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.15em] text-[#74CD25] bg-white/5">
+              <span>Search Results</span>
+              <span>{results.length} Units</span>
             </div>
 
-            <div className="max-h-64 overflow-y-auto">
+            <div>
               {visibleResults.length > 0 ? (
                 visibleResults.map((vehicle) => {
                   const isSelected = selectedVehicleId === vehicle.id;
@@ -160,7 +200,7 @@ const VehicleSearchPanel = React.memo(
                         "flex w-full items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-left transition",
                         isSelected ? "bg-[#7fff3f]/18" : "hover:bg-white/8"
                       )}
-                      onClick={() => onSelectVehicle(vehicle)}
+                      onClick={() => handleSelectVehicle(vehicle)}
                     >
                       <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-white">{vehicle.id}</div>
@@ -199,12 +239,15 @@ const VehicleSearchPanel = React.memo(
 );
 
 const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }) => (
-  <div className="h-[212px] min-w-0 rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
-    <div className="rounded-t-[20px] bg-[#7c7c7c] px-5 py-3 text-center text-[17px] font-extrabold leading-tight text-white">
-      {title}
+  <div
+    className={cn(bottomCardShellClass, "group transition-all hover:border-[#74CD25]/20")}
+    onWheel={(event) => event.stopPropagation()}
+  >
+    <div className={bottomCardHeaderClass}>
+        <h3 className="text-xs font-black uppercase tracking-[0.15em] text-white">{title}</h3>
     </div>
     <div className="flex h-[156px] flex-col p-4">
-      <div className="mb-2 text-xs font-medium text-white/65">{subtitle}</div>
+      <div className="mb-2 text-[10px] font-black text-gray-500 uppercase tracking-widest">{subtitle}</div>
       <div className="relative min-h-0 flex-1 pointer-events-auto">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 6, right: 4, left: -20, bottom: 0 }}>
@@ -230,32 +273,43 @@ const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }
 ));
 
 const LastTripCard = React.memo(({ tripHistory }) => (
-  <div className="h-[212px] min-w-0 overflow-hidden rounded-[20px] bg-[#3a3b3f]/70 shadow-[0_16px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">
-    <div className="rounded-t-[20px] bg-[#7c7c7c] px-5 py-3 text-center text-[17px] font-extrabold leading-tight text-white">
-      Last Trip
+  <div className={bottomCardShellClass} onWheel={(event) => event.stopPropagation()}>
+    <div className={bottomCardHeaderClass}>
+      <h3 className="text-xs font-black uppercase tracking-[0.15em] text-white">Last Trip</h3>
     </div>
-    <div className="h-[156px] space-y-4 overflow-hidden p-5">
-      {tripHistory.slice(-4).map((trip) => (
-        <div key={trip.id} className="flex items-start gap-3">
-          <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#8CFF2A]" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[14px] font-bold text-white">{trip.location}</div>
-            <div className="text-xs text-white/70">{trip.time}</div>
+    <div
+      className="h-[156px] space-y-3 overflow-hidden p-4 custom-scrollbar overflow-y-auto"
+      onWheel={(event) => event.stopPropagation()}
+    >
+      {tripHistory.length > 0 ? (
+        tripHistory.map((trip) => (
+          <div key={trip.id} className="flex items-start gap-3">
+            <MapPin className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#8CFF2A]" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-bold text-white">{trip.location}</div>
+              <div className="text-xs text-white/70">{trip.time}</div>
+            </div>
           </div>
+        ))
+      ) : (
+        <div className="flex h-full items-center justify-center text-xs text-white/30 uppercase tracking-widest font-black">
+          No Trip History
         </div>
-      ))}
+      )}
     </div>
   </div>
 ));
 
 const DetailRow = React.memo(({ label, value, icon }) => (
-  <div className="flex items-start gap-3 border-b border-white/10 py-3 last:border-b-0">
-    {React.createElement(icon, {
-      className: "mt-0.5 h-4 w-4 flex-shrink-0 text-white/70",
-    })}
+  <div className="flex items-start gap-3 border-b border-white/5 py-2.5 last:border-b-0">
+    <div className="mt-0.5 p-1.5 rounded-lg bg-white/5">
+        {React.createElement(icon, {
+          className: "h-3.5 w-3.5 text-[#74CD25]",
+        })}
+    </div>
     <div className="min-w-0">
-      <div className="text-xs uppercase tracking-[0.08em] text-white/55">{label}</div>
-      <div className="text-sm font-semibold text-white">{value}</div>
+      <div className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-500">{label}</div>
+      <div className="text-sm font-black text-white tracking-tight">{value}</div>
     </div>
   </div>
 ));
@@ -273,13 +327,35 @@ const VehicleInfoCard = React.memo(
   }) => (
     <div
       className={cn(
-        "pointer-events-auto absolute bottom-4 right-4 z-20 w-[346px] overflow-hidden rounded-[22px] bg-[#3a3b3f]/70 shadow-[0_18px_38px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-300",
-        isExpanded ? "min-h-[378px]" : "h-[214px]"
+        "pointer-events-auto absolute bottom-4 right-4 z-20 w-[360px] overflow-hidden rounded-3xl bg-[#1e1f22]/95 border border-white/10 shadow-2xl backdrop-blur-xl transition-all",
+        isExpanded ? "max-h-[80vh]" : "h-[220px]"
       )}
     >
-      <div className="flex items-center justify-between bg-[#7c7c7c] px-5 py-2">
-        <div className="text-[18px] font-extrabold text-white">Cars</div>
+      <div className="flex items-center justify-between bg-gradient-to-r from-[#4A8516] to-[#5FA81E] px-6 py-3">
+        <div className="text-xs font-black uppercase tracking-[0.2em] text-white">Tactical Unit Data</div>
         <div className="flex items-center gap-1">
+          <button
+            className={cn(
+              "rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white",
+              canGoPrev ? "" : "opacity-30 cursor-not-allowed"
+            )}
+            onClick={onPrev}
+            disabled={!canGoPrev}
+            title="Previous vehicle"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            className={cn(
+              "rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white",
+              canGoNext ? "" : "opacity-30 cursor-not-allowed"
+            )}
+            onClick={onNext}
+            disabled={!canGoNext}
+            title="Next vehicle"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
           <button
             className="rounded-full p-1.5 text-white/85 transition hover:bg-white/10 hover:text-white"
             onClick={onToggleExpand}
@@ -297,53 +373,34 @@ const VehicleInfoCard = React.memo(
         </div>
       </div>
 
-      <button
-        className={cn(
-          "absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-[#4b4c50] shadow transition",
-          canGoPrev ? "hover:scale-105 hover:bg-white" : "cursor-not-allowed opacity-40"
-        )}
-        onClick={onPrev}
-        disabled={!canGoPrev}
-        title="Previous vehicle"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-
-      <button
-        className={cn(
-          "absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/85 p-1.5 text-[#4b4c50] shadow transition",
-          canGoNext ? "hover:scale-105 hover:bg-white" : "cursor-not-allowed opacity-40"
-        )}
-        onClick={onNext}
-        disabled={!canGoNext}
-        title="Next vehicle"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-
-      <div className="px-10 py-4">
-        <div className="mb-3 flex items-start gap-4">
+      <div className="px-6 py-5">
+        <div className="mb-6 flex items-start gap-4">
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[18px] font-black text-[#7fff3f]">{vehicle.name}</div>
-            <div className="mt-3 text-[24px] font-black leading-none text-white">{Math.round(vehicle.speed || 0)} KM/H</div>
-            <div className="text-sm text-white/70">Speed</div>
+            <div className="truncate text-xl font-black text-[#74CD25] uppercase tracking-tight">{vehicle.name}</div>
+            <div className="mt-3 flex items-baseline gap-1">
+                <span className="text-4xl font-black leading-none text-white tracking-tighter">{Math.round(vehicle.speed || 0)}</span>
+                <span className="text-xs font-black text-gray-500 uppercase tracking-widest">KM/H</span>
+            </div>
+            <div className="text-[10px] font-black text-[#74CD25]/60 uppercase tracking-[0.2em] mt-1">Velocity Vector</div>
           </div>
-          <img
-            src={vehicle.image}
-            alt={vehicle.name}
-            className="h-[78px] w-[98px] rounded-[14px] object-cover shadow-lg"
-            loading="lazy"
-          />
+          <div className="relative group">
+            <img
+                src={vehicle.image}
+                alt={vehicle.name}
+                className="h-20 w-24 rounded-xl object-cover border border-white/10 relative z-10 shadow-lg"
+                loading="lazy"
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-4">
-          <div>
-            <div className="text-[20px] font-black leading-none text-white">{vehicle.distance || "0 KM"}</div>
-            <div className="text-sm text-white/70">Jarak</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
+            <div className="text-xl font-black leading-none text-white tracking-tight">{vehicle.distance || "0 KM"}</div>
+            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Distance</div>
           </div>
-          <div>
-            <div className="text-[20px] font-black leading-none text-white">{getFuelVolume(vehicle)} L</div>
-            <div className="text-sm text-white/70">Kapasitas</div>
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
+            <div className="text-xl font-black leading-none text-white tracking-tight">{getFuelVolume(vehicle)} L</div>
+            <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mt-1">Fuel Capacity</div>
           </div>
         </div>
 
@@ -355,9 +412,9 @@ const VehicleInfoCard = React.memo(
         >
           <DetailRow label="ID Alat" value={vehicle.idFms || `FMS-${vehicle.id}`} icon={Truck} />
           <DetailRow label="Nama Operator" value={vehicle.operatorName || "-"} icon={UserRound} />
+          <DetailRow label="Nomor Unit" value={vehicle.unitNumber || "-"} icon={Truck} />
           <DetailRow label="ID Operator" value={vehicle.operatorId || "-"} icon={UserRound} />
-          <DetailRow label="Nomor Plat" value={vehicle.plateNumber || "-"} icon={Truck} />
-          <DetailRow label="Lokasi Terakhir" value={vehicle.lastLocation || "-"} icon={MapPin} />
+          <DetailRow label="Status Trip" value={vehicle.lastTripStatus || "End Trip"} icon={MapPin} />
         </div>
       </div>
     </div>
@@ -399,7 +456,6 @@ const VehicleTooltip = React.memo(({ vehicle, position }) => {
 });
 
 const HomeScreen = () => {
-
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [hoveredVehicle, setHoveredVehicle] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
@@ -409,10 +465,12 @@ const HomeScreen = () => {
   const [influxSummary, setInfluxSummary] = useState(null);
   const [influxVehicles, setInfluxVehicles] = useState([]);
   const [registeredAlat, setRegisteredAlat] = useState([]);
+  const [tripEntries, setTripEntries] = useState([]);
   const [realTripHistory, setRealTripHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasAnimated, setHasAnimated] = useState(false);
   const hasInfluxVehicles = influxVehicles.length > 0;
+  const { rawVehicles } = useMqttContext();
 
   useEffect(() => {
     if (!loading && hasInfluxVehicles && !hasAnimated) {
@@ -423,18 +481,20 @@ const HomeScreen = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [summaryRes, vehiclesRes, alatRes] = await Promise.all([
+      const [summaryRes, vehiclesRes, alatRes, tripRes] = await Promise.all([
         influxService.getSummary(),
         influxService.getVehicles(),
-        alatService.getAll()
+        alatService.getAll(),
+        dataTripService.getAll(),
       ]);
-      
+
       setInfluxSummary(summaryRes.data);
-      
-      if (alatRes.data?.ok && Array.isArray(alatRes.data.data)) {
+
+      if ((alatRes.data?.success || alatRes.data?.ok) && Array.isArray(alatRes.data.data)) {
         setRegisteredAlat(alatRes.data.data);
       }
-      
+      setTripEntries(tripRes.data?.ok && Array.isArray(tripRes.data.data) ? tripRes.data.data : []);
+
       // Preserve existing fuel data when updating vehicles
       setInfluxVehicles(prev => {
         const incoming = vehiclesRes.data || [];
@@ -461,21 +521,30 @@ const HomeScreen = () => {
   }, [fetchDashboardData]);
 
   const vehicleData = useMemo(() => {
-    // Whitelist of allowed vehicle IDs (idFms) from MySQL registration
-    const allowedFmsIds = new Set(registeredAlat.map(a => a.idFms));
-
     return influxVehicles
-      .filter(v => allowedFmsIds.has(v.id)) // Filter Influx data by MySQL registration
       .map(v => {
         const registration = registeredAlat.find(a => a.idFms === v.id);
+        const mqttVehicle = rawVehicles[v.id];
+        const useLiveGps = mqttVehicle?.gpsValid === true;
+
         return {
           ...v,
+          lat: useLiveGps ? mqttVehicle.lat : v.lat,
+          lng: useLiveGps ? mqttVehicle.lng : v.lng,
+          speed: mqttVehicle?.speed ?? v.speed,
+          heading: mqttVehicle?.heading ?? v.heading,
+          status: mqttVehicle?.status || v.status,
+          tripPath: mqttVehicle?.tripPath || v.tripPath || [],
+          lastTripStatus: mqttVehicle?.lastTripStatus || v.lastTripStatus || "End Trip",
+          tripCount: mqttVehicle?.tripCount ?? v.tripCount ?? 0,
+          statusTrip: mqttVehicle?.operator_input?.status_trip || v.statusTrip || "-",
           image: registration?.gambar ? resolveBackendUrl(registration.gambar) : '/assets/selected-vehicle.png',
-          name: registration?.noPlat || v.name || v.id,
+          name: registration?.noUnit || v.name || v.id,
+          unitNumber: registration?.noUnit || "-",
           plateNumber: registration?.noPlat || v.plateNumber || v.id,
         };
       });
-  }, [influxVehicles, registeredAlat]);
+  }, [influxVehicles, rawVehicles, registeredAlat]);
 
   const normalizedVehicleSearch = vehicleSearch.trim().toLowerCase();
 
@@ -497,7 +566,7 @@ const HomeScreen = () => {
           influxService.getFuelRealtime(selectedVehicle.id),
           influxService.getFuelWeekly(selectedVehicle.id)
         ]);
-        
+
         setInfluxVehicles(prev => prev.map(v => {
           if (v.id !== selectedVehicle.id) return v;
           return {
@@ -521,34 +590,26 @@ const HomeScreen = () => {
   // Fetch real trip history for the selected vehicle
   useEffect(() => {
     if (!selectedVehicle?.id) {
-        setRealTripHistory([]);
-        return;
+      setRealTripHistory([]);
+      return;
     }
+    const filtered = tripEntries
+      .filter((trip) => trip.idAlat === selectedVehicle.id)
+      .slice(0, 4)
+      .map((trip) => {
+        // Fix for 1970 timestamps: use createdAt if waktu is invalid
+        const rawTime = trip.waktuFinish || trip.waktuStart;
+        const isInvalid = !rawTime || rawTime.startsWith('1970');
+        const displayTime = isInvalid ? trip.createdAt : rawTime;
 
-    const fetchTripHistory = async () => {
-      try {
-        const res = await dataTripService.getAll();
-        if (res.data?.ok && Array.isArray(res.data.data)) {
-            // Filter by vehicle ID (matching vehicle_id from influx with idAlat from MySQL)
-            const filtered = res.data.data
-                .filter(trip => trip.idAlat === selectedVehicle.id)
-                .slice(0, 4) // Show latest 4
-                .map(trip => ({
-                    id: trip.id,
-                    location: trip.lokasiFinish || trip.lokasiStart || "Unknown Location",
-                    time: trip.waktuFinish || trip.waktuStart || "-"
-                }));
-            setRealTripHistory(filtered);
-        }
-      } catch (error) {
-        console.error("Error fetching trip history:", error);
-      }
-    };
-
-    fetchTripHistory();
-    const interval = setInterval(fetchTripHistory, 30000); // refresh every 30s
-    return () => clearInterval(interval);
-  }, [selectedVehicle?.id]);
+        return {
+          id: trip.id,
+          location: trip.lokasiFinish || trip.lokasiStart || "Unknown Location",
+          time: displayTime || "-",
+        };
+      });
+    setRealTripHistory(filtered);
+  }, [selectedVehicle?.id, tripEntries]);
 
   const currentVehicle = useMemo(() => {
     if (!selectedVehicle) return null;
@@ -556,8 +617,6 @@ const HomeScreen = () => {
       || vehicleData.find((v) => v.id === selectedVehicle.id)
       || selectedVehicle;
   }, [selectedVehicle, filteredVehicleData, vehicleData]);
-
-
 
   const handleVehicleClick = useCallback((vehicle) => {
     setSelectedVehicle((prev) => {
@@ -647,35 +706,36 @@ const HomeScreen = () => {
   const canGoPrev = currentVehicleIndex > 0;
   const canGoNext = currentVehicleIndex >= 0 && currentVehicleIndex < filteredVehicleData.length - 1;
 
-  const deviceItems = useMemo(
-    () => [
-      { icon: Power, value: influxSummary?.status_device?.on || 0, label: "ON", accent: "text-[#39ff14]" },
-      {
-        icon: AlertTriangle,
-        value: influxSummary?.status_device?.lossCoordinate || 0,
-        label: "Loss Coordinate",
-        accent: "text-[#ffc107]",
-      },
-      { icon: WifiOff, value: influxSummary?.status_device?.off || 0, label: "OFF", accent: "text-[#ff3131]" },
-      { icon: Monitor, value: influxSummary?.status_device?.total || 0, label: "Total", accent: "text-white" },
-    ],
-    [influxSummary]
-  );
+  const deviceItems = useMemo(() => {
+    const vehiclesList = Object.values(rawVehicles);
+    const onCount = vehiclesList.filter(v => v.status === 'online').length;
+    const offCount = vehiclesList.filter(v => v.status === 'offline').length;
+    const lossCount = vehiclesList.filter(v => v.gpsValid === false).length;
+    
+    return [
+      { icon: Power, value: onCount, label: "ON", accent: "text-[#39ff14]" },
+      { icon: AlertTriangle, value: lossCount, label: "Loss Coordinate", accent: "text-[#ffc107]" },
+      { icon: WifiOff, value: offCount, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Monitor, value: vehiclesList.length, label: "Total", accent: "text-white" },
+    ];
+  }, [rawVehicles]);
 
-  const equipmentItems = useMemo(
-    () => [
-      { icon: Truck, value: influxSummary?.status_alat?.on || 0, label: "ON", accent: "text-[#39ff14]" },
-      { icon: Truck, value: influxSummary?.status_alat?.passive || 0, label: "Passive", accent: "text-[#ffc107]" },
-      { icon: Truck, value: influxSummary?.status_alat?.off || 0, label: "OFF", accent: "text-[#ff3131]" },
-      { icon: Truck, value: influxSummary?.status_alat?.total || 0, label: "Total", accent: "text-white" },
-    ],
-    [influxSummary]
-  );
+  const equipmentItems = useMemo(() => {
+    const vehiclesList = Object.values(rawVehicles);
+    const onCount = vehiclesList.filter(v => v.vehicle?.engine_on === true).length;
+    const passiveCount = vehiclesList.filter(v => v.vehicle?.engine_on === true && v.vehicle?.moving === false).length;
+    const offCount = vehiclesList.filter(v => v.vehicle?.engine_on === false).length;
+    
+    return [
+      { icon: Truck, value: onCount, label: "ON", accent: "text-[#39ff14]" },
+      { icon: Truck, value: passiveCount, label: "Passive", accent: "text-[#ffc107]" },
+      { icon: Truck, value: offCount, label: "OFF", accent: "text-[#ff3131]" },
+      { icon: Truck, value: vehiclesList.length, label: "Total", accent: "text-white" },
+    ];
+  }, [rawVehicles]);
 
   const produksiItems = useMemo(
     () => {
-      // ALWAYS use standard labels from TOTAL_PRODUKSI template
-      // and only fill values from influxSummary if the labels match.
       const base = TOTAL_PRODUKSI.map(template => {
         const realData = influxSummary?.produksi_items?.find(item => item.label === template.label);
         return {
@@ -686,112 +746,106 @@ const HomeScreen = () => {
 
       return base.map((item) => ({
         ...item,
-        tone: item.label.includes("OB")
-          ? "bg-[#f5b40d]"
+        toneColor: item.label.includes("OB")
+          ? "bg-[#9C7A20]"
           : item.label.includes("SAP")
-            ? "bg-[#30c948]"
-            : "bg-[#dc1a23]",
+            ? "bg-[#5FA81E]"
+            : "bg-[#8B3538]",
       }));
     },
     [influxSummary]
   );
 
-  const bottomCardsPadding = selectedVehicle ? "pr-[360px]" : "";
+  const bottomCardsPadding = selectedVehicle ? "pr-[376px]" : "";
 
   return (
-    <PageLayout className="p-6">
-      {/* <div className="rounded-[34px] bg-[#e8f1f6] p-2 shadow-[0_16px_42px_rgba(0,0,0,0.18)]"> */}
-        <div className="relative h-[calc(100vh-100px)] min-h-[640px] max-h-[780px] overflow-hidden rounded-[28px] border-[4px] border-white/90 bg-[#b9dced]">
-          <div className="absolute inset-0">
-            <GoogleMap
-              vehicles={filteredVehicleData}
-              selectedVehicle={selectedVehicle}
-              onVehicleClick={handleVehicleClick}
-              onVehicleHover={handleVehicleHover}
-              onVehicleLeave={handleVehicleLeave}
-            />
-          </div>
+    <PageLayout noScroll={true} className="p-4">
+      <div className="relative flex-1 overflow-hidden rounded-[2.5rem] border-[1px] border-white/10 bg-[#1a1b1e] shadow-2xl">
+        <div className="absolute inset-0">
+          <GoogleMap
+            vehicles={filteredVehicleData}
+            selectedVehicle={currentVehicle}
+            onVehicleClick={handleVehicleClick}
+            onVehicleHover={handleVehicleHover}
+            onVehicleLeave={handleVehicleLeave}
+          />
+        </div>
 
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.02)_22%,rgba(255,255,255,0.12)_100%)]" />
+        <div className="pointer-events-none relative z-10 flex h-full flex-col p-4">
+          <div className="pointer-events-auto">
+            <div className="flex gap-3">
+              <StatusPanel title="DEVICE STATUS" items={deviceItems} />
+              <StatusPanel title="EQUIPMENT STATUS" items={equipmentItems} />
+            </div>
 
-          <div className="pointer-events-none relative z-10 flex h-full flex-col p-4">
-            <div className="pointer-events-auto">
-              <div className="flex gap-3">
-                <StatusPanel title="DEVICE STATUS" items={deviceItems} />
-                <StatusPanel title="EQUIPMENT STATUS" items={equipmentItems} />
+            <div className="mt-2 flex items-start gap-4">
+              <div className="flex flex-col gap-2">
+                <ProductionBadge title="Total Produksi" value={influxSummary?.total_produksi || "0"} />
+                <ProductionBadge title="Konsumsi BBM" value={`${formatNumber(influxSummary?.konsumsi_bbm || 0)} L`} />
               </div>
 
-              <div className="mt-2 flex items-start gap-4">
-                <div className="flex flex-col gap-2">
-                  <ProductionBadge title="Total Produksi" value={influxSummary?.total_produksi || "0"} />
-                  <ProductionBadge title="Konsumsi BBM" value={`${formatNumber(influxSummary?.konsumsi_bbm || 0)} L`} />
+              <div className="min-w-0 flex flex-1 flex-col gap-1 pt-1">
+                <div className="grid max-h-[162px] grid-cols-[repeat(auto-fit,minmax(160px,1fr))] auto-rows-fr gap-3 overflow-y-auto pr-1 custom-scrollbar">
+                  {produksiItems.map((item) => (
+                    <ProductionItem key={item.label} label={item.label} value={item.value} toneColor={item.toneColor} />
+                  ))}
                 </div>
 
-                <div className="min-w-0 flex flex-1 flex-col gap-1 pt-1">
-                  <div className="flex flex-wrap gap-3">
-                    {produksiItems.map((item) => (
-                      <ProductionItem key={item.label} label={item.label} value={item.value} tone={item.tone} />
-                    ))}
-                  </div>
-
-                  <div className="flex justify-end">
-                    <VehicleSearchPanel
-                      searchTerm={vehicleSearch}
-                      onSearchChange={setVehicleSearch}
-                      onClear={() => setVehicleSearch("")}
-                      onKeyDown={handleSearchKeyDown}
-                      results={filteredVehicleData}
-                      onSelectVehicle={handleVehicleSearchSelect}
-                      selectedVehicleId={selectedVehicle?.id}
-                    />
-                  </div>
+                <div className="flex justify-end">
+                  <VehicleSearchPanel
+                    searchTerm={vehicleSearch}
+                    onSearchChange={setVehicleSearch}
+                    onClear={() => setVehicleSearch("")}
+                    onKeyDown={handleSearchKeyDown}
+                    results={filteredVehicleData}
+                    onSelectVehicle={handleVehicleSearchSelect}
+                    selectedVehicleId={selectedVehicle?.id}
+                  />
                 </div>
               </div>
             </div>
-
-            <div className="flex-1" />
-
-            {currentVehicle ? (
-              <div className={cn("pointer-events-none transition-all duration-300", bottomCardsPadding)}>
-                <div className="grid grid-cols-3 gap-4">
-                  <BottomChartCard
-                    title="Volume Bahan Bakar Realtime"
-                    subtitle="Liter (L)"
-                    data={currentVehicle.fuelData || []}
-                    xKey="time"
-                    hasAnimated={hasAnimated}
-                  />
-                  <BottomChartCard
-                    title="Konsumsi Bahan Bakar"
-                    subtitle="Liter (L)"
-                    data={currentVehicle.weeklyFuel || []}
-                    xKey="day"
-                    hasAnimated={hasAnimated}
-                  />
-                  <LastTripCard tripHistory={realTripHistory} />
-                </div>
-              </div>
-            ) : null}
           </div>
 
+          <div className="flex-1" />
+
           {currentVehicle ? (
-            <VehicleInfoCard
-              vehicle={currentVehicle}
-              isExpanded={isDetailExpanded}
-              onToggleExpand={handleToggleExpand}
-              onClose={handleCloseVehicle}
-              onPrev={handlePrevVehicle}
-              onNext={handleNextVehicle}
-              canGoPrev={canGoPrev}
-              canGoNext={canGoNext}
-            />
+            <div className={cn("pointer-events-none transition-all duration-300", bottomCardsPadding)}>
+              <div className="grid grid-cols-3 gap-4">
+                <BottomChartCard
+                  title="Volume Bahan Bakar Realtime"
+                  subtitle="Liter (L)"
+                  data={currentVehicle.fuelData || []}
+                  xKey="time"
+                  hasAnimated={hasAnimated}
+                />
+                <BottomChartCard
+                  title="Konsumsi Bahan Bakar"
+                  subtitle="Liter (L)"
+                  data={currentVehicle.weeklyFuel || []}
+                  xKey="day"
+                  hasAnimated={hasAnimated}
+                />
+                <LastTripCard tripHistory={realTripHistory} />
+              </div>
+            </div>
           ) : null}
-          
-
         </div>
-      {/* </div> */}
 
-      {hoveredVehicle ? <VehicleTooltip vehicle={hoveredVehicle} position={hoverPosition} /> : null}
+        {currentVehicle ? (
+          <VehicleInfoCard
+            vehicle={currentVehicle}
+            isExpanded={isDetailExpanded}
+            onToggleExpand={handleToggleExpand}
+            onClose={handleCloseVehicle}
+            onPrev={handlePrevVehicle}
+            onNext={handleNextVehicle}
+            canGoPrev={canGoPrev}
+            canGoNext={canGoNext}
+          />
+        ) : null}
+
+        {hoveredVehicle ? <VehicleTooltip vehicle={hoveredVehicle} position={hoverPosition} /> : null}
+      </div>
     </PageLayout>
   );
 };

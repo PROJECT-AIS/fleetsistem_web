@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch, Wifi, WifiOff, CreditCard, Check } from "lucide-react";
 import { useNfcScan } from "../../../hooks/useNfcScan";
 import PageLayout from "../../layout/PageLayout";
@@ -33,6 +33,16 @@ const TABS = [
     { id: "users", label: "Data Users", icon: Users },
 ];
 
+const ENTRY_ROUTE_BY_TAB = {
+    "shift-code": "/parameter/shift-code",
+    "material-type": "/parameter/material-type",
+    alat: "/parameter/equipment",
+    operator: "/parameter/operator",
+    lokasi: "/parameter/location",
+    kalibrasi: "/setup/sensor-calibration",
+    users: "/setup/user-management",
+};
+
 // Toast notification
 const Toast = ({ message, type, onClose }) => {
     useEffect(() => {
@@ -41,9 +51,13 @@ const Toast = ({ message, type, onClose }) => {
     }, [onClose]);
 
     return (
-        <div className={`fixed top-4 right-4 z-[60] px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${type === "success" ? "bg-green-500" : "bg-red-500"} text-white`}>
-            {type === "success" ? <Save className="w-5 h-5" /> : <X className="w-5 h-5" />}
-            {message}
+        <div className={`fixed top-4 right-4 z-[9999] px-6 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in border ${
+            type === "success" 
+                ? "bg-[#74CD25]/10 border-[#74CD25]/30 text-[#74CD25]" 
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            } backdrop-blur-md`}>
+            {type === "success" ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            <span className="font-bold text-sm tracking-wide uppercase">{message}</span>
         </div>
     );
 };
@@ -51,7 +65,7 @@ const Toast = ({ message, type, onClose }) => {
 // Reusable form input component
 const FormInput = ({ label, name, value, onChange, type = "text", placeholder = "", required = false, disabled = false }) => (
     <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label} {required && <span className="text-red-500">*</span>}</label>
         <input
             type={type}
             name={name}
@@ -60,7 +74,7 @@ const FormInput = ({ label, name, value, onChange, type = "text", placeholder = 
             placeholder={placeholder}
             disabled={disabled}
             required={required}
-            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
+            className="bg-[#2d2e32] text-white px-4 py-3 rounded-xl border border-white/10 focus:border-[#74CD25] focus:outline-none transition-all disabled:opacity-50 text-sm"
         />
     </div>
 );
@@ -68,13 +82,14 @@ const FormInput = ({ label, name, value, onChange, type = "text", placeholder = 
 // Reusable select component
 const FormSelect = ({ label, name, value, onChange, options, required = false, disabled = false }) => (
     <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label} {required && <span className="text-red-500">*</span>}</label>
         <select
             name={name}
             value={value}
             onChange={onChange}
             disabled={disabled}
-            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
+            className="bg-[#2d2e32] text-white px-4 py-3 rounded-xl border border-white/10 focus:border-[#74CD25] focus:outline-none transition-all text-sm appearance-none"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
         >
             <option value="">Pilih {label}</option>
             {options.map((opt) => (
@@ -132,10 +147,10 @@ const EditShiftCodeModal = ({ isOpen, onClose, item, onSave }) => {
                         <FormInput label="Keterangan" name="keterangan" value={form.keterangan} onChange={handleChange} />
                     </div>
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -185,10 +200,10 @@ const EditMaterialTypeModal = ({ isOpen, onClose, item, onSave }) => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <FormInput label="Jenis Muatan" name="jenisMuatan" value={form.jenisMuatan} onChange={handleChange} required />
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -221,8 +236,7 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, itemName }) => {
 // ===================== EDIT MODALS =====================
 
 // Edit Alat Modal
-// Edit Alat Modal
-const EditAlatModal = ({ isOpen, onClose, item, showToast, onSuccess }) => {
+const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
     const [form, setForm] = useState({ 
         idFms: "", 
         noUnit: "", 
@@ -255,11 +269,10 @@ const EditAlatModal = ({ isOpen, onClose, item, showToast, onSuccess }) => {
         setLoading(true);
         try {
             await alatService.update(item.id, form);
-            showToast("Data alat berhasil diupdate", "success");
-            onSuccess();
+            onSave("Data alat berhasil diupdate", "success");
             onClose();
         } catch (error) {
-            showToast(error.response?.data?.message || "Gagal mengupdate data alat", "error");
+            onSave(error.response?.data?.message || "Gagal mengupdate data alat", "error");
         } finally {
             setLoading(false);
         }
@@ -300,10 +313,10 @@ const EditAlatModal = ({ isOpen, onClose, item, showToast, onSuccess }) => {
                     </div>
 
                     <div className="mt-8 flex justify-end gap-3 border-t border-[#343538] pt-6">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl text-gray-400 hover:text-white transition-all font-semibold">
+                        <button type="button" onClick={onClose} className="flex items-center gap-2 px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">
                             Batal
                         </button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-[#74CD25] text-white font-bold hover:bg-[#5fa01c] transition-all disabled:opacity-50">
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                             Simpan Perubahan
                         </button>
@@ -348,6 +361,12 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
             onSave(nfcError, "error");
         }
     }, [nfcError, onSave]);
+
+    const handleStopScan = () => {
+        stopScan();
+        setForm(prev => ({ ...prev, idCardNfc: "" }));
+        onSave("Scan dihentikan, ID Card NFC dikosongkan", "success");
+    };
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -417,7 +436,7 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                             {scanning ? (
                                 <button
                                     type="button"
-                                    onClick={stopScan}
+                                    onClick={handleStopScan}
                                     className="flex items-center gap-2 px-5 py-3 bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg font-semibold text-sm hover:bg-red-500/30 transition-all"
                                 >
                                     <WifiOff className="w-4 h-4" />
@@ -447,7 +466,7 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                         )}
 
                         {/* Success indicator */}
-                        {nfcId && !scanning && (
+                        {form.idCardNfc && !scanning && (
                             <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                                 <Check className="w-4 h-4 text-emerald-400" />
                                 <span className="text-sm text-emerald-400 font-medium">Kartu NFC baru berhasil terbaca</span>
@@ -456,8 +475,8 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                     </div>
 
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
@@ -604,10 +623,10 @@ const EditLokasiModal = ({ isOpen, onClose, item, onSave }) => {
                     </div>
 
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -666,10 +685,10 @@ const EditKalibrasiModal = ({ isOpen, onClose, item, onSave }) => {
                     <FormInput label="Full (Nilai Penuh)" name="full" value={form.full} onChange={handleChange} type="number" required />
                     <FormInput label="Kapasitas Tangki (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" required />
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -763,10 +782,10 @@ const EditUsersModal = ({ isOpen, onClose, item, onSave }) => {
                         <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} required />
                     </div>
                     <div className="flex gap-3 pt-4 justify-end">
-                        <button type="button" onClick={onClose} className="px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg hover:bg-[#5a5b5d] transition-colors">Batal</button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors disabled:opacity-50">
+                        <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Simpan
+                            Simpan Perubahan
                         </button>
                     </div>
                 </form>
@@ -779,7 +798,7 @@ const EditUsersModal = ({ isOpen, onClose, item, onSave }) => {
 const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 6;
 
     const filteredData = data.filter((item) =>
         Object.values(item).some((val) =>
@@ -820,18 +839,18 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
             </div>
 
             {/* Table */}
-            <div className={analysisTableShellClass}>
-                <div className={analysisTableScrollClass}>
-                <table className={analysisTableClass}>
-                    <thead className={analysisTableHeadClass}>
+            <div className={`${analysisTableShellClass} flex-1 min-h-0 flex flex-col`}>
+                <div className={`${analysisTableScrollClass} flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar`}>
+                <table className={`${analysisTableClass} border-separate border-spacing-0`}>
+                    <thead className={`${analysisTableHeadClass} sticky top-0 z-20`}>
                         <tr className={analysisHeaderRowClass}>
-                            <th className={`${analysisHeaderCellClass} text-left`}>No</th>
+                            <th className={`${analysisHeaderCellClass} text-left bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>No</th>
                             {columns.map((col) => (
-                                <th key={col.key} className={`${analysisHeaderCellClass} text-left`}>
+                                <th key={col.key} className={`${analysisHeaderCellClass} text-left bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>
                                     {col.label}
                                 </th>
                             ))}
-                            <th className={`${analysisHeaderCellClass} text-center`}>Aksi</th>
+                            <th className={`${analysisHeaderCellClass} text-center bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className={analysisBodyClass}>
@@ -893,17 +912,17 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
                         <button
                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="p-2 rounded-lg bg-[#4a4b4d] text-white disabled:opacity-50 hover:bg-[#5a5b5d] transition-colors"
+                            className="p-2.5 rounded-xl bg-[#2d2e32] text-white disabled:opacity-30 hover:bg-[#3d3e42] transition-all border border-white/5"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-sm text-gray-300">
-                            Halaman {currentPage} dari {totalPages}
+                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
+                            {currentPage} / {totalPages}
                         </span>
                         <button
                             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
-                            className="p-2 rounded-lg bg-[#4a4b4d] text-white disabled:opacity-50 hover:bg-[#5a5b5d] transition-colors"
+                            className="p-2.5 rounded-xl bg-[#2d2e32] text-white disabled:opacity-30 hover:bg-[#3d3e42] transition-all border border-white/5"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
@@ -974,8 +993,12 @@ export default function ShowConfigScreen({
     pageDescription = "Lihat dan kelola data konfigurasi yang sudah tersimpan.",
     visibleTabs = null,
 }) {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const tabs = visibleTabs?.length ? TABS.filter((tab) => visibleTabs.includes(tab.id)) : TABS;
+    const [searchParams] = useSearchParams();
+    const tabs = visibleTabs?.length
+        ? visibleTabs
+            .map((id) => TABS.find((tab) => tab.id === id))
+            .filter(Boolean)
+        : TABS;
     const initialTab = tabs.some((tab) => tab.id === defaultTab) ? defaultTab : tabs[0]?.id || "alat";
     const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -1007,6 +1030,8 @@ export default function ShowConfigScreen({
     const [lokasiData, setLokasiData] = useState([]);
     const [kalibrasiData, setKalibrasiData] = useState([]);
     const [usersData, setUsersData] = useState([]);
+    const entryRoute = ENTRY_ROUTE_BY_TAB[activeTab] || null;
+    const entryRouteLabel = entryRoute?.startsWith("/setup/") ? "Ke Entry Setup" : "Ke Entry Parameter";
 
     useEffect(() => {
         setActiveTab(initialTab);
@@ -1137,40 +1162,52 @@ export default function ShowConfigScreen({
     };
 
     return (
-        <PageLayout className="p-6">
+        <PageLayout noScroll={true} className="p-6">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
-                <p className="mt-2 text-sm text-gray-400">{pageDescription}</p>
+            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-white tracking-tight">{pageTitle}</h1>
+                    <p className="mt-1 text-sm text-gray-400">{pageDescription}</p>
+                </div>
+                {entryRoute ? (
+                    <Link
+                        to={entryRoute}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#74CD25]/40 bg-[#74CD25]/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-[#74CD25] transition hover:bg-[#74CD25]/20"
+                    >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        {entryRouteLabel}
+                    </Link>
+                ) : null}
             </div>
 
-            {/* Tabs */}
-            <div className="flex flex-wrap gap-2 mb-6 bg-[#2d2e32] p-2 rounded-xl w-fit">
-                {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-200
-                ${isActive
-                                    ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30"
-                                    : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"
-                                }
-              `}
-                        >
-                            <Icon className="w-4 h-4" />
-                            {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
+            <div className="bg-[#343538] rounded-3xl p-8 shadow-2xl border border-white/5 flex-1 min-h-0 flex flex-col relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#74CD25]/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
 
-            {/* Content */}
-            <div className="bg-[#343538] rounded-xl p-6">
-                {renderTable()}
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                    <div className="mb-6">
+                        <div className="flex gap-2 bg-[#2d2e32] p-1.5 rounded-2xl w-fit border border-white/5 shadow-inner overflow-x-auto max-w-full">
+                            {tabs.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                        className={`flex shrink-0 items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold transition-all duration-300 tracking-tight text-xs whitespace-nowrap
+                ${isActive ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/40 scale-105" : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"}`}>
+                                        <Icon className="w-4 h-4" />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#2d2e32] p-4 shadow-xl shadow-black/20">
+                        <div className="h-full overflow-hidden">
+                            {renderTable()}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Delete Modal */}

@@ -5,6 +5,12 @@ import {
   Layers,
   Route,
   Truck,
+  Calendar,
+  Activity,
+  ArrowUpRight,
+  TrendingUp,
+  Clock,
+  RefreshCw
 } from "lucide-react";
 import {
   Bar,
@@ -19,231 +25,64 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Area,
+  AreaChart
 } from "recharts";
 import PageLayout from "../../layout/PageLayout";
 import { useMqttContext } from "../../../context/mqttContextValue";
 import { influxService } from "../../../services/influxService";
-
-const MATERIALS = [
-  { key: "ob", label: "OB", color: "#74CD25" },
-  { key: "limOre", label: "LIM Ore", color: "#38BDF8" },
-  { key: "sapOre", label: "SAP Ore", color: "#22C55E" },
-  { key: "topSoil", label: "Top Soil", color: "#14B8A6" },
-  { key: "civilQuarry", label: "Civil Quarry", color: "#60A5FA" },
-  { key: "coal", label: "Coal", color: "#94A3B8" },
-  { key: "slag", label: "Slag", color: "#64748B" },
-  { key: "materialLainnya", label: "Lainnya", color: "#2DD4BF" },
-];
+import { dataTripService, lokasiService, materialTypeService } from "../../../services/configService";
 
 const PERIOD_OPTIONS = [
-  { key: "realtime", label: "Realtime" },
-  { key: "today", label: "Hari Ini" },
-  { key: "week", label: "Minggu Ini" },
+  { key: "realtime", label: "Realtime", icon: Activity },
+  { key: "today", label: "Hari Ini", icon: Clock },
+  { key: "week", label: "Minggu Ini", icon: Calendar },
 ];
 
-const PERIOD_DATA = {
-  realtime: [
-    { label: "08:00", ob: 18, limOre: 9, sapOre: 7, topSoil: 4, civilQuarry: 2, coal: 1, slag: 1, materialLainnya: 2, fuel: 92, operating: 11, trip: 44 },
-    { label: "09:00", ob: 26, limOre: 13, sapOre: 10, topSoil: 6, civilQuarry: 3, coal: 2, slag: 1, materialLainnya: 2, fuel: 128, operating: 14, trip: 63 },
-    { label: "10:00", ob: 34, limOre: 17, sapOre: 14, topSoil: 7, civilQuarry: 4, coal: 2, slag: 2, materialLainnya: 3, fuel: 166, operating: 16, trip: 83 },
-    { label: "11:00", ob: 39, limOre: 19, sapOre: 16, topSoil: 8, civilQuarry: 5, coal: 3, slag: 2, materialLainnya: 4, fuel: 191, operating: 17, trip: 96 },
-    { label: "12:00", ob: 32, limOre: 16, sapOre: 13, topSoil: 7, civilQuarry: 4, coal: 2, slag: 1, materialLainnya: 3, fuel: 155, operating: 13, trip: 78 },
-    { label: "13:00", ob: 43, limOre: 22, sapOre: 18, topSoil: 9, civilQuarry: 5, coal: 3, slag: 2, materialLainnya: 4, fuel: 214, operating: 18, trip: 106 },
-    { label: "14:00", ob: 47, limOre: 24, sapOre: 20, topSoil: 10, civilQuarry: 6, coal: 3, slag: 2, materialLainnya: 5, fuel: 232, operating: 19, trip: 117 },
-  ],
-  today: [
-    { label: "Shift 1", ob: 156, limOre: 74, sapOre: 63, topSoil: 31, civilQuarry: 18, coal: 12, slag: 8, materialLainnya: 15, fuel: 812, operating: 18, trip: 377 },
-    { label: "Shift 2", ob: 148, limOre: 68, sapOre: 59, topSoil: 28, civilQuarry: 16, coal: 10, slag: 7, materialLainnya: 14, fuel: 768, operating: 17, trip: 350 },
-  ],
-  week: [
-    { label: "Sen", ob: 282, limOre: 132, sapOre: 118, topSoil: 56, civilQuarry: 29, coal: 22, slag: 15, materialLainnya: 28, fuel: 1460, operating: 17, trip: 682 },
-    { label: "Sel", ob: 306, limOre: 148, sapOre: 126, topSoil: 61, civilQuarry: 34, coal: 24, slag: 16, materialLainnya: 31, fuel: 1584, operating: 18, trip: 746 },
-    { label: "Rab", ob: 298, limOre: 141, sapOre: 121, topSoil: 58, civilQuarry: 31, coal: 23, slag: 14, materialLainnya: 29, fuel: 1538, operating: 18, trip: 715 },
-    { label: "Kam", ob: 326, limOre: 157, sapOre: 136, topSoil: 65, civilQuarry: 36, coal: 26, slag: 17, materialLainnya: 34, fuel: 1692, operating: 19, trip: 797 },
-    { label: "Jum", ob: 314, limOre: 152, sapOre: 130, topSoil: 62, civilQuarry: 35, coal: 25, slag: 16, materialLainnya: 32, fuel: 1626, operating: 18, trip: 766 },
-    { label: "Sab", ob: 251, limOre: 119, sapOre: 104, topSoil: 48, civilQuarry: 27, coal: 19, slag: 12, materialLainnya: 25, fuel: 1308, operating: 15, trip: 605 },
-    { label: "Min", ob: 224, limOre: 106, sapOre: 92, topSoil: 43, civilQuarry: 24, coal: 17, slag: 11, materialLainnya: 21, fuel: 1162, operating: 14, trip: 538 },
-  ],
-};
+const THEME_GREEN_SERIES = [
+  "#4A8516",
+  "#5FA81E",
+  "#74CD25",
+  "#8AE035",
+  "#6CBF23",
+  "#3F7015",
+];
+const getThemeSeriesColor = (index) => THEME_GREEN_SERIES[index % THEME_GREEN_SERIES.length];
 
 const numberFormatter = new Intl.NumberFormat("id-ID");
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
-const toNumber = (value) => {
-  if (value == null) return 0;
-  const parsed = Number(String(value).replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 const formatNumber = (value) => numberFormatter.format(Math.round(Number(value || 0)));
-
-const getMaterialKey = (value) => {
-  const material = String(value || "").toLowerCase();
-
-  if (material.includes("lim")) return "limOre";
-  if (material.includes("sap")) return "sapOre";
-  if (material.includes("top")) return "topSoil";
-  if (material.includes("quarry") || material.includes("civil")) return "civilQuarry";
-  if (material.includes("coal")) return "coal";
-  if (material.includes("slag")) return "slag";
-  if (material.includes("ob") || material.includes("overburden")) return "ob";
-  if (material) return "materialLainnya";
-
-  return null;
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const shortDays = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+const parseTripTimestamp = (trip) => {
+  const rawDate = trip.createdAt || trip.updatedAt || trip.waktuFinish || trip.waktuStart || trip.tanggal;
+  if (!rawDate) return null;
+  const parsed = new Date(rawDate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const parseStatTimestamp = (row) => {
+  const rawDate = row.time || row.timestamp || row.bucketStart || row._time || null;
+  if (!rawDate) return null;
+  const parsed = new Date(rawDate);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const getVehicleMaterialKey = (vehicle) =>
-  getMaterialKey(
-    vehicle.trip?.material ||
-      vehicle.trip?.material_type ||
-      vehicle.production?.material ||
-      vehicle.payload?.material ||
-      vehicle.load?.type ||
-      vehicle.material ||
-      vehicle.jenisMuatan ||
-      vehicle.jenis_muatan
-  );
-
-const getVehicleTripValue = (vehicle, materialKey) => {
-  const tripValue =
-    vehicle.trip?.total ||
-    vehicle.trip?.count ||
-    vehicle.production?.trip ||
-    vehicle.production?.total ||
-    vehicle.retase ||
-    vehicle.totalTrip;
-
-  return toNumber(tripValue) || (materialKey ? 1 : 0);
-};
-
-const getFuelValue = (vehicle) =>
-  toNumber(
-    vehicle.fuel?.consumption_l ||
-      vehicle.fuel?.consumption ||
-      vehicle.sensorFuel?.konsumsi ||
-      vehicle.fuelConsumption ||
-      vehicle.fuel?.volume_l ||
-      vehicle.fuelVolume
-  );
-
-const isOperating = (vehicle) =>
-  vehicle.status === "online" ||
-  vehicle.vehicle?.engine_on ||
-  vehicle.vehicle?.moving ||
-  vehicle.engine === "on" ||
-  vehicle.moving;
-
-const buildEmptyPoint = (label) => ({
-  label,
-  fuel: 0,
-  operating: 0,
-  trip: 0,
-  ...Object.fromEntries(MATERIALS.map((material) => [material.key, 0])),
-});
-
-const buildLiveSeries = (vehicles) => {
-  if (!vehicles.length) return [];
-
-  const buckets = new Map();
-
-  vehicles.forEach((vehicle) => {
-    const fuelPoints = vehicle.fuelData || vehicle.fuelHistory || [];
-    const materialKey = getVehicleMaterialKey(vehicle);
-    const tripValue = getVehicleTripValue(vehicle, materialKey);
-    const operating = isOperating(vehicle) ? 1 : 0;
-
-    if (!fuelPoints.length) {
-      const label = String(vehicle.time || vehicle.datetime?.best || "Live").split(" ").pop();
-      const point = buckets.get(label) || buildEmptyPoint(label);
-
-      point.fuel += getFuelValue(vehicle);
-      point.operating += operating;
-      point.trip += tripValue;
-      if (materialKey) point[materialKey] += tripValue;
-
-      buckets.set(label, point);
-      return;
-    }
-
-    fuelPoints.forEach((fuelPoint, index) => {
-      const label = fuelPoint.time || `T-${index + 1}`;
-      const point = buckets.get(label) || buildEmptyPoint(label);
-
-      point.fuel += toNumber(fuelPoint.value);
-      point.operating += operating;
-      if (materialKey) {
-        const distributedTrip = Math.max(1, Math.round(tripValue / Math.max(fuelPoints.length, 1)));
-        point.trip += distributedTrip;
-        point[materialKey] += distributedTrip;
-      }
-
-      buckets.set(label, point);
-    });
-  });
-
-  return Array.from(buckets.values()).slice(-8);
-};
-
-const addTotals = (rows) =>
-  rows.map((row) => ({
-    ...row,
-    production: MATERIALS.reduce((total, material) => total + toNumber(row[material.key]), 0),
-  }));
-
-const mergeLiveWithFallback = (liveRows, fallbackRows) => {
-  if (!liveRows.length) return addTotals(fallbackRows);
-
-  return addTotals(
-    liveRows.map((row, index) => {
-      const fallback = fallbackRows[index % fallbackRows.length];
-      const hasProduction = MATERIALS.some((material) => toNumber(row[material.key]) > 0);
-
-      return {
-        ...fallback,
-        ...row,
-        ...(hasProduction
-          ? {}
-          : Object.fromEntries(MATERIALS.map((material) => [material.key, fallback[material.key]]))),
-        trip: row.trip || fallback.trip,
-        operating: row.operating || fallback.operating,
-        fuel: row.fuel || fallback.fuel,
-      };
-    })
-  );
-};
-
-const getTotals = (rows) => {
-  const materialTotals = Object.fromEntries(MATERIALS.map((material) => [material.key, 0]));
-
-  rows.forEach((row) => {
-    MATERIALS.forEach((material) => {
-      materialTotals[material.key] += toNumber(row[material.key]);
-    });
-  });
-
-  return {
-    materialTotals,
-    production: Object.values(materialTotals).reduce((total, value) => total + value, 0),
-    fuel: rows.reduce((total, row) => total + toNumber(row.fuel), 0),
-    trip: rows.reduce((total, row) => total + toNumber(row.trip), 0),
-    operating: Math.max(...rows.map((row) => toNumber(row.operating)), 0),
-  };
-};
-
-const ChartTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-xl border border-[#74CD25]/30 bg-[#242529]/95 px-3 py-2 shadow-xl">
-      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/60">{label}</div>
-      <div className="space-y-1">
-        {payload.map((entry) => (
-          <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-xs">
-            <span className="font-semibold" style={{ color: entry.color }}>
-              {entry.name}
-            </span>
-            <span className="font-bold text-white">{formatNumber(entry.value)}</span>
+    <div className="rounded-2xl border border-white/10 bg-[#1a1b1e]/90 p-4 shadow-2xl backdrop-blur-xl">
+      <div className="mb-2 text-xs font-black uppercase tracking-widest text-gray-500">{label}</div>
+      <div className="space-y-2">
+        {payload.map((entry, index) => (
+          <div key={index} className="flex items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
+              <span className="text-[11px] font-bold text-gray-300 uppercase">{entry.name}</span>
+            </div>
+            <span className="text-xs font-black text-white">{formatNumber(entry.value)}</span>
           </div>
         ))}
       </div>
@@ -251,86 +90,104 @@ const ChartTooltip = ({ active, payload, label }) => {
   );
 };
 
-const PieTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-
-  const item = payload[0].payload;
-
-  return (
-    <div className="z-[9999] rounded-xl border border-[#74CD25]/30 bg-[#242529]/95 px-3 py-2 shadow-xl">
-      <div className="text-xs font-semibold uppercase tracking-wide text-white/60">{item.name}</div>
-      <div className="mt-1 text-sm font-black text-[#74CD25]">{item.percent}%</div>
-    </div>
-  );
-};
-
-const SummaryCard = ({ icon, label, value, sublabel, accent }) => (
-  <div className="rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-4 shadow-lg">
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-gray-400">{label}</div>
-        <div className="mt-2 text-2xl font-black leading-none text-white">{value}</div>
-        <div className="mt-2 text-xs font-medium text-gray-400">{sublabel}</div>
-      </div>
-      <div className={cn("rounded-lg p-2", accent)}>
-        {React.createElement(icon, { className: "h-5 w-5" })}
+const SummaryCard = ({ icon, label, value, sublabel, accent, trend }) => (
+  <div className="group relative h-full min-h-[112px] overflow-hidden rounded-2xl border border-white/5 bg-[#2d2e32]/80 p-4 transition-all hover:border-[#74CD25]/30 hover:bg-[#2d2e32] shadow-xl">
+    <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-[#74CD25]/5 blur-3xl" />
+    <div className="relative flex items-start justify-between">
+      <div className="space-y-3">
+        <div className={cn("inline-flex items-center gap-2 rounded-xl px-3 py-1.5", accent)}>
+          {React.createElement(icon, { className: "h-4 w-4" })}
+          <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+        </div>
+        <div>
+          <div className="text-3xl font-black text-white tracking-tight">{value}</div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs font-bold text-gray-500">
+            {sublabel}
+            {trend && (
+              <span className="flex items-center gap-0.5 text-[#74CD25]">
+                <ArrowUpRight className="h-3 w-3" />
+                {trend}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   </div>
 );
 
-const ChartCard = ({ title, subtitle, children }) => (
-  <div className="min-h-[320px] rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-4 shadow-lg">
-    <div className="mb-4 flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-sm font-bold uppercase tracking-wide text-white">{title}</h2>
-        <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
-      </div>
-      <BarChart3 className="h-5 w-5 flex-shrink-0 text-[#74CD25]" />
-    </div>
-    <div className="h-[250px] pointer-events-auto relative">{children}</div>
-  </div>
-);
-
-const MaterialPieChart = ({ data }) => (
-  <div className="grid h-full gap-4 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1fr)]">
-    <div className="min-h-0">
+const MaterialPieChart = ({ data, totalValue }) => (
+  <div className="flex h-full min-h-0 flex-col gap-4 lg:flex-row lg:items-center">
+    {/* Chart Section */}
+    <div className="relative mx-auto h-full min-h-[140px] min-w-0 flex-1 max-h-[180px] lg:max-h-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
-            startAngle={90}
-            endAngle={-270}
-            innerRadius="48%"
-            outerRadius="78%"
-            paddingAngle={2}
-            stroke="#2d2e32"
-            strokeWidth={3}
+            innerRadius="70%"
+            outerRadius="95%"
+            paddingAngle={4}
+            stroke="none"
             isAnimationActive={false}
           >
-            {data.map((entry) => (
-              <Cell key={entry.key} fill={entry.color} />
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.color} 
+                fillOpacity={0.85} 
+              />
             ))}
           </Pie>
-          <Tooltip content={<PieTooltip />} />
+          <Tooltip content={<CustomTooltip />} />
         </PieChart>
       </ResponsiveContainer>
+      
+      {/* Center Label - Smaller for compact fit */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[8px] font-black uppercase tracking-widest text-gray-500">Total Vol</span>
+        <span className="text-xl font-black text-white tracking-tighter">{formatNumber(totalValue)}</span>
+      </div>
     </div>
 
-    <div className="grid content-center gap-2 sm:grid-cols-2">
+    {/* More Compact Legend */}
+    <div className="grid w-full shrink-0 grid-cols-1 gap-1 overflow-y-auto pr-1 custom-scrollbar max-h-[150px] lg:w-56 lg:max-h-[220px]">
       {data.map((item) => (
-        <div key={item.key} className="rounded-lg border border-[#4a4b4d] bg-[#343538] px-3 py-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
-              <span className="truncate text-xs font-bold uppercase text-gray-300">{item.name}</span>
-            </div>
+        <div 
+          key={item.key} 
+          className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] px-3 py-1.5"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+            <span className="text-[9px] font-bold uppercase tracking-tight text-gray-400 truncate">
+              {item.name}
+            </span>
           </div>
+          <span className="text-[10px] font-black text-white ml-2">{item.percent}%</span>
         </div>
       ))}
     </div>
+  </div>
+);
+
+const ChartCard = ({ title, subtitle, icon: Icon, children }) => (
+  <div 
+    className={cn(
+      "group relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/5 bg-[#2d2e32]/60 p-4 shadow-xl transition-all hover:border-[#74CD25]/20 hover:bg-[#2d2e32] backdrop-blur-md"
+    )}
+  >
+    <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-[#74CD25]/5 blur-3xl" />
+    <div className="mb-3 flex items-start justify-between relative z-10">
+      <div className="min-w-0">
+        <h2 className="text-sm font-black text-white tracking-tight leading-none mb-1 group-hover:text-[#74CD25] transition-colors truncate">{title}</h2>
+        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">{subtitle}</p>
+      </div>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#74CD25]/10 text-[#74CD25]">
+        {React.createElement(Icon, { className: "h-4 w-4" })}
+      </div>
+    </div>
+    <div className="flex-1 min-h-0 relative z-10">{children}</div>
   </div>
 );
 
@@ -338,16 +195,23 @@ export default function Statistics() {
   const [activePeriod, setActivePeriod] = useState("realtime");
   const { rawVehicles } = useMqttContext();
   const [influxStats, setInfluxStats] = useState([]);
+  const [lokasiEntries, setLokasiEntries] = useState([]);
+  const [tripEntries, setTripEntries] = useState([]);
+  const [materialTypeEntries, setMaterialTypeEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const hasInfluxStats = influxStats.length > 0;
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const res = await influxService.getStatistics({ period: activePeriod });
-      setInfluxStats(res.data);
+      if (res.data && res.data.length > 0) {
+        setInfluxStats(res.data);
+      } else {
+        setInfluxStats([]);
+      }
     } catch (error) {
       console.error("Error fetching stats:", error);
+      setInfluxStats([]);
     } finally {
       setLoading(false);
     }
@@ -355,196 +219,423 @@ export default function Statistics() {
 
   useEffect(() => {
     fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, [fetchStats]);
 
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const fetchLocationSource = useCallback(async () => {
+    try {
+      const [lokasiRes, tripRes, materialTypeRes] = await Promise.all([
+        lokasiService.getAll(),
+        dataTripService.getAll(),
+        materialTypeService.getAll(),
+      ]);
+
+      setLokasiEntries(Array.isArray(lokasiRes.data?.data) ? lokasiRes.data.data : []);
+      setTripEntries(tripRes.data?.ok && Array.isArray(tripRes.data.data) ? tripRes.data.data : []);
+      setMaterialTypeEntries(Array.isArray(materialTypeRes.data?.data) ? materialTypeRes.data.data : []);
+    } catch (error) {
+      console.error("Error fetching location source:", error);
+      setLokasiEntries([]);
+      setTripEntries([]);
+      setMaterialTypeEntries([]);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!loading && hasInfluxStats && !hasAnimated) {
-      const timer = setTimeout(() => setHasAnimated(true), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, hasInfluxStats, hasAnimated]);
+    fetchLocationSource();
+    const interval = setInterval(fetchLocationSource, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLocationSource]);
 
-  const vehicles = useMemo(() => Object.values(rawVehicles || {}), [rawVehicles]);
-  const liveSeries = useMemo(() => buildLiveSeries(vehicles), [vehicles]);
+  const filteredTripsByPeriod = useMemo(() => {
+    const now = new Date();
+    const realtimeAgo = now.getTime() - (6 * 60 * 60 * 1000);
+    const weekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    const todayLabel = now.toLocaleDateString("id-ID");
+
+    return tripEntries.filter((trip) => {
+      const parsed = parseTripTimestamp(trip);
+      if (!parsed) return false;
+
+      if (activePeriod === "today") {
+        return parsed.toLocaleDateString("id-ID") === todayLabel;
+      }
+      if (activePeriod === "week") {
+        return parsed.getTime() >= weekAgo;
+      }
+      return parsed.getTime() >= realtimeAgo;
+    });
+  }, [activePeriod, tripEntries]);
+
+  const periodBins = useMemo(() => {
+    const now = new Date();
+
+    if (activePeriod === "today") {
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const noon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return [
+        { label: "Shift 1", start: startOfDay, end: noon },
+        { label: "Shift 2", start: noon, end: endOfDay },
+      ];
+    }
+
+    if (activePeriod === "week") {
+      return Array.from({ length: 7 }, (_, i) => {
+        const dayDate = new Date(now);
+        dayDate.setHours(0, 0, 0, 0);
+        dayDate.setDate(now.getDate() - (6 - i));
+        const start = new Date(dayDate);
+        const end = new Date(dayDate);
+        end.setHours(23, 59, 59, 999);
+        return {
+          label: shortDays[start.getDay()],
+          start,
+          end,
+        };
+      });
+    }
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const start = new Date(now);
+      start.setMinutes(0, 0, 0);
+      start.setHours(now.getHours() - (6 - i));
+      const end = new Date(start);
+      end.setHours(start.getHours() + 1);
+      const label = `${String(start.getHours()).padStart(2, "0")}:00`;
+      return { label, start, end };
+    });
+  }, [activePeriod]);
+
   const chartData = useMemo(() => {
-    if (influxStats.length > 0) return addTotals(influxStats);
-    return mergeLiveWithFallback(liveSeries, PERIOD_DATA[activePeriod]);
-  }, [activePeriod, liveSeries, influxStats]);
-  const totals = useMemo(() => getTotals(chartData), [chartData]);
+    const normalizedStatRows = influxStats
+      .map((row) => ({
+        ...row,
+        parsedTime: parseStatTimestamp(row),
+        fuel: Number(row.fuel || 0),
+        operating: Number(row.operating || 0),
+      }))
+      .filter((row) => row.parsedTime);
+    const onlineNow = Object.values(rawVehicles).filter((v) => v.status === "online").length;
+
+    return periodBins.map((bin, index) => {
+      const tripsInBin = filteredTripsByPeriod.filter((trip) => {
+        const parsed = parseTripTimestamp(trip);
+        if (!parsed) return false;
+        return parsed >= bin.start && parsed <= bin.end;
+      });
+      const statsInBin = normalizedStatRows.filter(
+        (row) => row.parsedTime >= bin.start && row.parsedTime <= bin.end
+      );
+
+      const uniqueFleet = new Set(
+        tripsInBin.map((trip) => String(trip.idAlat || "").trim()).filter(Boolean)
+      ).size;
+      const fuelFromInflux = statsInBin.reduce((sum, row) => sum + (Number.isFinite(row.fuel) ? row.fuel : 0), 0);
+      const operatingFromInflux = statsInBin.reduce(
+        (max, row) => Math.max(max, Number.isFinite(row.operating) ? row.operating : 0),
+        0
+      );
+
+      let operating = Math.max(uniqueFleet, operatingFromInflux);
+      if (activePeriod === "realtime" && index === periodBins.length - 1) {
+        operating = Math.max(operating, onlineNow);
+      }
+
+      return {
+        label: bin.label,
+        trip: tripsInBin.length,
+        operating,
+        fuel: fuelFromInflux,
+      };
+    });
+  }, [activePeriod, filteredTripsByPeriod, influxStats, periodBins, rawVehicles]);
+
+  const materialTypeDefinitions = useMemo(() => {
+    const seen = new Set();
+    return materialTypeEntries
+      .map((item) => String(item.jenisMuatan || "").trim())
+      .filter(Boolean)
+      .filter((label) => {
+        const normalized = normalizeText(label);
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .map((label, index) => ({
+        key: `material-${normalizeText(label).replace(/\s+/g, "-") || index}`,
+        label,
+        normalized: normalizeText(label),
+        color: getThemeSeriesColor(index),
+      }));
+  }, [materialTypeEntries]);
+
   const materialPieData = useMemo(() => {
-    const rawData = MATERIALS.map((material) => ({
+    if (!materialTypeDefinitions.length) return [];
+
+    const raw = materialTypeDefinitions.map((material) => ({
       key: material.key,
       name: material.label,
       color: material.color,
-      value: toNumber(totals.materialTotals[material.key]),
-    })).filter((item) => item.value > 0);
-    const total = rawData.reduce((sum, item) => sum + item.value, 0);
+      value: filteredTripsByPeriod.reduce((sum, trip) => {
+        return normalizeText(trip.jenisMuatan) === material.normalized ? sum + 1 : sum;
+      }, 0),
+    }));
 
-    return rawData.map((item) => ({
+    const total = raw.reduce((sum, item) => sum + item.value, 0);
+    return raw.map((item) => ({
       ...item,
       percent: total ? Math.round((item.value / total) * 100) : 0,
     }));
-  }, [totals.materialTotals]);
+  }, [filteredTripsByPeriod, materialTypeDefinitions]);
+
+  const materialCompositionTotal = useMemo(
+    () => materialPieData.reduce((sum, item) => sum + (item.value || 0), 0),
+    [materialPieData]
+  );
+
+  const totals = useMemo(() => {
+    // Find the most recent bucket that has fuel data to match current dashboard state
+    const latestValidBucket = [...chartData].reverse().find(row => Number(row.fuel || 0) > 0);
+    const totalFuel = latestValidBucket ? Number(latestValidBucket.fuel || 0) : 0;
+    
+    const maxOperating = chartData.reduce((max, row) => Math.max(max, Number(row.operating || 0)), 0);
+    const persistedTrips = filteredTripsByPeriod.length;
+    const totalTrip = persistedTrips;
+    const totalProduction = totalTrip;
+
+    return { totalProduction, totalFuel, totalTrip, maxOperating };
+  }, [chartData, filteredTripsByPeriod.length]);
+
   const materialBarData = useMemo(
     () =>
-      MATERIALS.map((material) => ({
-        key: material.key,
-        name: material.label,
-        color: material.color,
-        value: toNumber(totals.materialTotals[material.key]),
+      materialPieData.map((item) => ({
+        name: item.name,
+        value: item.value,
+        color: item.color,
       })),
-    [totals.materialTotals]
+    [materialPieData]
   );
-  const isLive = vehicles.length > 0;
+
+  const locationBasedMaterialData = useMemo(() => {
+    if (!lokasiEntries.length) return materialBarData;
+
+    return lokasiEntries.map((lokasi, index) => {
+      const locationName = normalizeText(lokasi.name);
+      const tripCount = filteredTripsByPeriod.reduce((sum, trip) => {
+        const start = normalizeText(trip.lokasiStart);
+        const finish = normalizeText(trip.lokasiFinish);
+        return (start === locationName || finish === locationName) ? sum + 1 : sum;
+      }, 0);
+
+      return {
+        name: lokasi.name || `Lokasi ${index + 1}`,
+        value: tripCount,
+        color: getThemeSeriesColor(index),
+      };
+    });
+  }, [filteredTripsByPeriod, lokasiEntries, materialBarData]);
 
   return (
-    <PageLayout className="p-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Statistik & Chart</h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Data Log {isLive ? "Realtime" : "Preview"} - Total seluruh alat
-          </p>
+    <PageLayout noScroll={true} className="p-4">
+      <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#74CD25]/10 px-4 py-1 border border-[#74CD25]/20">
+            <TrendingUp className="h-3.5 w-3.5 text-[#74CD25]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#74CD25]">System Performance</span>
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tighter">Fleet Statistics</h1>
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl bg-[#2d2e32] p-1">
+        <div className="flex items-center gap-2 rounded-2xl bg-[#2d2e32] p-1.5 shadow-2xl border border-white/5">
           {PERIOD_OPTIONS.map((period) => (
             <button
               key={period.key}
-              type="button"
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200",
-                activePeriod === period.key
-                  ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/25"
-                  : "text-gray-400 hover:bg-[#3d3e42] hover:text-white"
-              )}
               onClick={() => setActivePeriod(period.key)}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all",
+                activePeriod === period.key
+                  ? "bg-[#74CD25] text-white shadow-xl shadow-[#74CD25]/20"
+                  : "text-gray-500 hover:text-white"
+              )}
             >
+              <period.icon className="h-3.5 w-3.5" />
               {period.label}
             </button>
           ))}
+          <div className="h-6 w-px bg-white/5 mx-1" />
+          <button 
+            onClick={fetchStats}
+            className="p-2.5 text-gray-500 hover:text-[#74CD25] transition-colors"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </button>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-[#343538] p-6 shadow-2xl">
-        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            icon={Layers}
-            label="Total Produksi"
-            value={formatNumber(totals.production)}
-            sublabel="OB, LIM Ore, SAP Ore, dan material lain"
-            accent="bg-[#74CD25]/15 text-[#74CD25]"
-          />
-          <SummaryCard
+      <div className="grid shrink-0 auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          icon={Layers}
+          label="Total Produksi"
+          value={formatNumber(totals.totalProduction)}
+          sublabel="Accumulated Material"
+          accent="bg-[#74CD25]/10 text-[#74CD25]"
+          trend="+12%"
+        />
+        <SummaryCard
+          icon={Droplets}
+          label="Rata-rata BBM"
+          value={`${formatNumber(totals.totalFuel)} L`}
+          sublabel="Rata-rata Penggunaan BBM"
+          accent="bg-[#38BDF8]/10 text-[#38BDF8]"
+        />
+        <SummaryCard
+          icon={Truck}
+          label="Active Fleet"
+          value={formatNumber(totals.maxOperating)}
+          sublabel="Units in Operation"
+          accent="bg-[#818CF8]/10 text-[#818CF8]"
+        />
+        <SummaryCard
+          icon={Route}
+          label="Trip Aggregation"
+          value={formatNumber(totals.totalTrip)}
+          sublabel="Total Payload Trips"
+          accent="bg-[#F472B6]/10 text-[#F472B6]"
+          trend="+5%"
+        />
+      </div>
+
+      <div className="grid flex-1 min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+        {/* Top Row: Primary Graphics */}
+        <div className="grid min-h-0 gap-3 md:grid-cols-2">
+          <ChartCard 
+            title="Material Composition" 
+            subtitle="Based on Material Type" 
+            icon={BarChart3}
+          >
+            <MaterialPieChart data={materialPieData} totalValue={materialCompositionTotal} />
+          </ChartCard>
+
+          <ChartCard 
+            title="Fuel Consumption" 
+            subtitle="Usage trend" 
             icon={Droplets}
-            label="Konsumsi BBM"
-            value={`${formatNumber(totals.fuel)} L`}
-            sublabel="Akumulasi dari Data Log realtime"
-            accent="bg-[#38BDF8]/15 text-[#38BDF8]"
-          />
-          <SummaryCard
-            icon={Truck}
-            label="Alat Beroperasi"
-            value={formatNumber(totals.operating)}
-            sublabel="Jumlah unit aktif pada periode"
-            accent="bg-[#22C55E]/15 text-[#22C55E]"
-          />
-          <SummaryCard
-            icon={Route}
-            label="Total Trip"
-            value={formatNumber(totals.trip)}
-            sublabel="Agregasi trip seluruh alat"
-            accent="bg-[#14B8A6]/15 text-[#14B8A6]"
-          />
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorFuel" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38BDF8" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#38BDF8" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis 
+                  dataKey="label" 
+                  tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={20}
+                />
+                <YAxis 
+                  tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  width={35}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="fuel" 
+                  stroke="#38BDF8" 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorFuel)" 
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
-          <ChartCard title="Total Produksi" subtitle="Diagram batang total produksi per material">
+        {/* Bottom Row: Secondary Metrics */}
+        <div className="grid min-h-0 gap-3 md:grid-cols-3">
+          <ChartCard 
+            title="Fleet Activity" 
+            subtitle="Active vehicles" 
+            icon={Truck}
+          >
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={materialBarData} margin={{ top: 10, right: 14, left: -14, bottom: 0 }}>
-                <CartesianGrid stroke="#4a4b4d" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
-                <Bar 
-                  dataKey="value" 
-                  name="Total Produksi" 
-                  radius={[4, 4, 0, 0]} 
-                  isAnimationActive={!hasAnimated}
-                  animationDuration={hasAnimated ? 0 : 1500}
-                >
-                  {materialBarData.map((entry) => (
-                    <Cell key={entry.key} fill={entry.color} />
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Line 
+                  type="stepAfter" 
+                  dataKey="operating" 
+                  stroke="#74CD25" 
+                  strokeWidth={4} 
+                  dot={false}
+                  activeDot={{ r: 8, strokeWidth: 0, fill: "#74CD25" }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard 
+            title="Trip Efficiency" 
+            subtitle="Trips trend" 
+            icon={Route}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis 
+                  dataKey="label" 
+                  tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis 
+                  tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  width={35}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
+                <Bar dataKey="trip" fill="#F472B6" radius={[8, 8, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard 
+            title="Material Production" 
+            subtitle="From entry parameter location" 
+            icon={Layers}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={locationBasedMaterialData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} isAnimationActive={false}>
+                  {locationBasedMaterialData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-
-          <ChartCard title="Konsumsi BBM" subtitle="Total pemakaian BBM seluruh alat">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 14, left: -14, bottom: 0 }}>
-                <CartesianGrid stroke="#4a4b4d" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
-                <Line
-                  type="monotone"
-                  dataKey="fuel"
-                  name="BBM"
-                  stroke="#39ff14"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: "#39ff14", strokeWidth: 2 }}
-                  activeDot={{ r: 6, strokeWidth: 0 }}
-                  isAnimationActive={!hasAnimated}
-                  animationDuration={hasAnimated ? 0 : 1500}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
         </div>
-
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.45fr)]">
-          <ChartCard title="Alat Beroperasi" subtitle="Unit aktif sepanjang periode">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 14, left: -14, bottom: 0 }}>
-                <CartesianGrid stroke="#4a4b4d" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
-                <Line
-                  type="monotone"
-                  dataKey="operating"
-                  name="Alat"
-                  stroke="#74CD25"
-                  strokeWidth={3}
-                  dot={{ fill: "#74CD25", r: 3 }}
-                  activeDot={{ fill: "#38BDF8", r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Total Trip" subtitle="Trip seluruh material dari Data Log">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 10, right: 14, left: -14, bottom: 0 }}>
-                <CartesianGrid stroke="#4a4b4d" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#d4d4d8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} trigger="axis" isAnimationActive={false} />
-                <Bar dataKey="trip" name="Trip" fill="#14B8A6" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        <div className="mt-4">
-          <ChartCard title="Komposisi Material" subtitle="Persentase total produksi berdasarkan jenis muatan">
-            <MaterialPieChart data={materialPieData} />
-          </ChartCard>
-        </div>
+      </div>
       </div>
     </PageLayout>
   );

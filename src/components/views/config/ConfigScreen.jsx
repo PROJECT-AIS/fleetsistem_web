@@ -30,18 +30,20 @@ const TABS = [
 
 // Input Data Sub-tabs
 const INPUT_DATA_TABS = [
-    { id: "alat", label: "Input Data Alat", icon: Truck },
-    { id: "operator", label: "Input Data Operator", icon: User },
-    { id: "lokasi", label: "Input Data Lokasi", icon: MapPin },
+    { id: "alat", label: "Data Alat", icon: Truck },
+    { id: "operator", label: "Data Operator", icon: User },
+    { id: "lokasi", label: "Data Lokasi", icon: MapPin },
 ];
 
 const PARAMETER_INPUT_TABS = [
     { id: "shift-code", label: "Shift Code", icon: PackageSearch },
     { id: "material-type", label: "Material Type", icon: PackageSearch },
-    { id: "alat", label: "Equipment", icon: Truck },
-    { id: "operator", label: "Operator", icon: User },
-    { id: "lokasi", label: "Location", icon: MapPin },
+    { id: "alat", label: "Data Alat", icon: Truck },
+    { id: "operator", label: "Data Operator", icon: User },
+    { id: "lokasi", label: "Data Lokasi", icon: MapPin },
 ];
+
+const cn = (...classes) => classes.filter(Boolean).join(" ");
 
 // Toast notification
 const Toast = ({ message, type, onClose }) => {
@@ -51,18 +53,34 @@ const Toast = ({ message, type, onClose }) => {
     }, [onClose]);
 
     return (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${type === "success" ? "bg-green-500" : "bg-red-500"
-            } text-white`}>
+        <div className={`fixed top-4 right-4 z-[9999] px-6 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in border ${
+            type === "success" 
+                ? "bg-[#74CD25]/10 border-[#74CD25]/30 text-[#74CD25]" 
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            } backdrop-blur-md`}>
             {type === "success" ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
-            {message}
+            <span className="font-bold text-sm tracking-wide uppercase">{message}</span>
         </div>
     );
 };
 
 // Reusable form input component
-const FormInput = ({ label, name, value, onChange, type = "text", placeholder = "", required = false, disabled = false }) => (
-    <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+const FormInput = ({
+    label,
+    name,
+    value,
+    onChange,
+    type = "text",
+    placeholder = "",
+    required = false,
+    disabled = false,
+    compact = false,
+    className = "",
+}) => (
+    <div className={cn("flex flex-col gap-1.5", compact && "gap-1")}>
+        <label className={cn("text-xs font-bold text-gray-500 uppercase tracking-widest", compact && "tracking-[0.12em]")}>
+            {label} {required && <span className="text-red-500">*</span>}
+        </label>
         <input
             type={type}
             name={name}
@@ -71,20 +89,30 @@ const FormInput = ({ label, name, value, onChange, type = "text", placeholder = 
             placeholder={placeholder}
             disabled={disabled}
             required={required}
-            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors disabled:opacity-50"
+            className={cn(
+                "bg-[#2d2e32] text-white px-4 py-3 rounded-xl border border-white/10 focus:border-[#74CD25] focus:outline-none transition-all disabled:opacity-50 text-sm",
+                compact && "px-3 py-2.5 text-sm rounded-lg",
+                className
+            )}
         />
     </div>
 );
 
 // Reusable select component
-const FormSelect = ({ label, name, value, onChange, options, required = false }) => (
-    <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-gray-400">{label} {required && <span className="text-red-400">*</span>}</label>
+const FormSelect = ({ label, name, value, onChange, options, required = false, compact = false }) => (
+    <div className={cn("flex flex-col gap-1.5", compact && "gap-1")}>
+        <label className={cn("text-xs font-bold text-gray-500 uppercase tracking-widest", compact && "tracking-[0.12em]")}>
+            {label} {required && <span className="text-red-500">*</span>}
+        </label>
         <select
             name={name}
             value={value}
             onChange={onChange}
-            className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors"
+            className={cn(
+                "bg-[#2d2e32] text-white px-4 py-3 rounded-xl border border-white/10 focus:border-[#74CD25] focus:outline-none transition-all text-sm appearance-none",
+                compact && "px-3 py-2.5 text-sm rounded-lg"
+            )}
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
         >
             <option value="">Pilih {label}</option>
             {options.map((opt) => (
@@ -168,18 +196,19 @@ const PREVIEW_TABLES = {
 };
 
 const PreviewTable = ({ title, columns, rows, manageHref }) => (
-    <div className="mt-8 rounded-2xl bg-[#343538] p-5 shadow-xl">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="mt-12 rounded-3xl bg-[#2d2e32] p-7 border border-white/5 shadow-2xl overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-[#74CD25]/5 rounded-full blur-2xl -ml-16 -mt-16 pointer-events-none" />
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between relative">
             <div>
-                <h3 className="text-lg font-bold text-white">{title}</h3>
-                <p className="text-sm text-gray-400">Entry data dan view data sekarang ditampilkan dalam satu halaman.</p>
+                <h3 className="text-xl font-black text-white tracking-tight uppercase">{title}</h3>
+                <p className="text-xs text-gray-500 mt-0.5 font-bold uppercase tracking-widest">Entry data dan view data terintegrasi</p>
             </div>
             <Link
                 to={manageHref}
-                className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#4a4b4d] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#5a5b5d]"
+                className="inline-flex w-fit items-center gap-2.5 rounded-xl bg-[#4a4b4d] px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#5a5b5d] hover:scale-105 active:scale-95 shadow-lg"
             >
                 <Eye className="h-4 w-4" />
-                Kelola Detail
+                Manage Detail
             </Link>
         </div>
 
@@ -219,7 +248,7 @@ const PreviewTable = ({ title, columns, rows, manageHref }) => (
 );
 
 // Kalibrasi Tab Component
-const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/parameter/view" }) => {
+const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ alatId: "", empty: "", full: "", kapasitasTangki: "" });
     const [loading, setLoading] = useState(false);
 
@@ -246,46 +275,63 @@ const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/param
 
     return (
         <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-white mb-2">Input Kalibrasi Sensor Fuel</h2>
-            <p className="text-gray-400 text-sm mb-6">Konfigurasi nilai sensor bahan bakar untuk kalibrasi alat</p>
+            {!compact ? <h2 className="text-2xl font-black text-white mb-1.5 tracking-tight uppercase">Sensor Calibration</h2> : null}
+            {!compact ? <p className="text-gray-500 text-xs mb-8 font-bold uppercase tracking-widest">Konfigurasi ambang batas sensor bahan bakar</p> : null}
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
-                <FormSelect
-                    label="Pilih Alat"
-                    name="alatId"
-                    value={form.alatId}
-                    onChange={handleChange}
-                    options={alatList.map(a => ({ value: a.id, label: `${a.idFms} - ${a.noUnit}` }))}
-                    required
-                />
-                <FormInput label="Empty (Nilai Kosong)" name="empty" value={form.empty} onChange={handleChange} type="number" placeholder="0" required />
-                <FormInput label="Full (Nilai Penuh)" name="full" value={form.full} onChange={handleChange} type="number" placeholder="1023" required />
-                <FormInput label="Kapasitas Tangki (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="100" required />
+            <form
+                onSubmit={handleSubmit}
+                className={cn(
+                    "space-y-6 max-w-4xl bg-[#2d2e32] p-8 rounded-2xl border border-white/5 shadow-xl",
+                    compact && "space-y-4 max-w-full p-4 rounded-xl"
+                )}
+            >
+                <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6", compact && "gap-3")}>
+                    <FormSelect
+                        label="Equipment"
+                        name="alatId"
+                        value={form.alatId}
+                        onChange={handleChange}
+                        options={alatList.map(a => ({ value: a.id, label: `${a.idFms || a.noPlat} (${a.typeAlat || 'Unit'})` }))}
+                        compact={compact}
+                        required
+                    />
+                    <FormInput label="Empty Value (Raw)" name="empty" value={form.empty} onChange={handleChange} type="number" placeholder="Contoh: 150" required compact={compact} />
+                    <FormInput label="Full Value (Raw)" name="full" value={form.full} onChange={handleChange} type="number" placeholder="Contoh: 1023" required compact={compact} />
+                    <FormInput label="Kapasitas Tangki (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="Contoh: 200" required compact={compact} />
+                </div>
 
-                <div className="flex gap-3 pt-4">
-                    <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <div className={cn("flex gap-3 pt-2", compact && "pt-1")}>
+                    <button type="submit" disabled={loading} className={cn(
+                        "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
+                        compact && "px-5 py-2.5"
+                    )}>
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Simpan Kalibrasi
                     </button>
-                    <button type="button" onClick={() => setForm({ alatId: "", empty: "", full: "", kapasitasTangki: "" })} className="flex items-center gap-2 px-6 py-2.5 bg-[#4a4b4d] text-white rounded-lg font-semibold hover:bg-[#5a5b5d] transition-colors">
+                    <button type="button" onClick={() => setForm({ alatId: "", empty: "", full: "", kapasitasTangki: "" })} className={cn(
+                        "flex items-center gap-2 px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all",
+                        compact && "px-4 py-2.5"
+                    )}>
                         <X className="w-4 h-4" />
                         Reset
                     </button>
                 </div>
             </form>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.kalibrasi.title}
-                columns={PREVIEW_TABLES.kalibrasi.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.kalibrasi.title}
+                    columns={PREVIEW_TABLES.kalibrasi.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </div>
     );
 };
 
 // Input Data Alat Component
-const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
+const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ 
         idFms: "", 
         noUnit: "", 
@@ -325,16 +371,16 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormInput label="ID Device (FMS)" name="idFms" value={form.idFms} onChange={handleChange} placeholder="FMS-001" required />
-                <FormInput label="Nomor Unit" name="noUnit" value={form.noUnit} onChange={handleChange} placeholder="ABC-DT-001" required />
-                <FormInput label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange} placeholder="DUMP TRUCK 10 WHEEL" required />
-                <FormInput label="Merek" name="merk" value={form.merk} onChange={handleChange} placeholder="SCANIA / VOLVO" />
-                <FormInput label="Kapasitas Muat Maksimum (TON)" name="kapasitasMuat" value={form.kapasitasMuat} onChange={handleChange} type="number" placeholder="30" />
-                <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="400" />
-                <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={handleChange} type="number" placeholder="2024" />
-                <FormSelect label="Status" name="status" value={form.status} onChange={handleChange}
+        <form onSubmit={handleSubmit} className={cn("space-y-6", compact && "space-y-4")}>
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", compact && "gap-3")}>
+                <FormInput label="ID Device (FMS)" name="idFms" value={form.idFms} onChange={handleChange} placeholder="FMS-001" required compact={compact} />
+                <FormInput label="Nomor Unit" name="noUnit" value={form.noUnit} onChange={handleChange} placeholder="ABC-DT-001" required compact={compact} />
+                <FormInput label="Jenis Alat" name="jenisAlat" value={form.jenisAlat} onChange={handleChange} placeholder="DUMP TRUCK 10 WHEEL" required compact={compact} />
+                <FormInput label="Merek" name="merk" value={form.merk} onChange={handleChange} placeholder="SCANIA / VOLVO" compact={compact} />
+                <FormInput label="Kapasitas Muat Maksimum (TON)" name="kapasitasMuat" value={form.kapasitasMuat} onChange={handleChange} type="number" placeholder="30" compact={compact} />
+                <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="400" compact={compact} />
+                <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={handleChange} type="number" placeholder="2024" compact={compact} />
+                <FormSelect label="Status" name="status" value={form.status} onChange={handleChange} compact={compact}
                     options={[
                         { value: "Aktif", label: "Aktif" },
                         { value: "Maintenance", label: "Maintenance" },
@@ -342,25 +388,27 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
                     ]} required />
             </div>
             
-            <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+            <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
+                <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Simpan Data Alat
                 </button>
             </div>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.alat.title}
-                columns={PREVIEW_TABLES.alat.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.alat.title}
+                    columns={PREVIEW_TABLES.alat.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </form>
     );
 };
 
 // Input Data Operator Component (with NFC Scan)
-const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
+const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ idOperator: "", nama: "", noTelp: "", divisi: "", idCardNfc: "", jabatan: "", alamat: "" });
     const [loading, setLoading] = useState(false);
     const { scanning, nfcId, error: nfcError, startScan, stopScan } = useNfcScan({ timeout: 30000 });
@@ -382,6 +430,12 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
         }
     }, [nfcError, showToast]);
 
+    const handleStopScan = useCallback(() => {
+        stopScan();
+        setForm(prev => ({ ...prev, idCardNfc: "" }));
+        showToast("Scan dihentikan, ID Card NFC dikosongkan", "success");
+    }, [showToast, stopScan]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -397,9 +451,105 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
         }
     };
 
+    if (compact) {
+        const nfcStatusLabel = scanning ? "Menunggu scan kartu" : form.idCardNfc ? "Kartu terbaca" : "Siap scan";
+
+        return (
+            <form onSubmit={handleSubmit} className="h-full flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                    <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} placeholder="OP-001" required compact />
+                    <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama lengkap" required compact />
+                    <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange} compact
+                        options={[
+                            { value: "Driver", label: "Driver" },
+                            { value: "Operator", label: "Operator" },
+                            { value: "Supervisor", label: "Supervisor" },
+                            { value: "Mekanik", label: "Mekanik" },
+                        ]} required />
+                    <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange} compact
+                        options={[
+                            { value: "Operasional", label: "Operasional" },
+                            { value: "Logistik", label: "Logistik" },
+                            { value: "Maintenance", label: "Maintenance" },
+                            { value: "HSE", label: "HSE" },
+                        ]} required />
+                    <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required compact />
+                    <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" compact />
+                </div>
+
+                <div className="rounded-lg border border-[#4a4b4d] bg-[#2d2e32] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <CreditCard className="w-3.5 h-3.5 text-[#74CD25]" />
+                            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">ID Card NFC</h3>
+                        </div>
+                        <span className={cn(
+                            "rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wider",
+                            scanning ? "bg-[#74CD25]/15 text-[#74CD25]" : form.idCardNfc ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-gray-300"
+                        )}>
+                            {nfcStatusLabel}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
+                        <input
+                            type="text"
+                            name="idCardNfc"
+                            value={form.idCardNfc}
+                            onChange={handleChange}
+                            placeholder="Tekan Scan untuk membaca kartu NFC..."
+                            className="w-full bg-[#1e1f22] text-white px-3 py-2 text-sm rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none transition-colors font-mono"
+                        />
+                        {scanning ? (
+                            <button
+                                type="button"
+                                onClick={handleStopScan}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg font-semibold text-sm hover:bg-red-500/30 transition-all"
+                            >
+                                <WifiOff className="w-3.5 h-3.5" />
+                                Stop
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={startScan}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#74CD25]/15 text-[#74CD25] border border-[#74CD25]/40 rounded-lg font-semibold text-sm hover:bg-[#74CD25]/25 transition-all"
+                            >
+                                <Wifi className="w-3.5 h-3.5" />
+                                Scan NFC
+                            </button>
+                        )}
+                    </div>
+
+                    {scanning ? <p className="mt-2 text-sm text-[#74CD25]">Tempel kartu NFC ke reader. Tekan Stop untuk membatalkan dan kosongkan ID.</p> : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#74CD25] text-white rounded-lg font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50"
+                    >
+                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        Simpan Operator
+                    </button>
+                </div>
+
+                {showPreview ? (
+                    <PreviewTable
+                        title={PREVIEW_TABLES.operator.title}
+                        columns={PREVIEW_TABLES.operator.columns}
+                        rows={rows}
+                        manageHref={manageHref}
+                    />
+                ) : null}
+            </form>
+        );
+    }
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} placeholder="OP-001" required />
                 <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama lengkap" required />
                 <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
@@ -417,12 +567,11 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                         { value: "HSE", label: "HSE" },
                     ]} required />
                 <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required />
-                <div className="md:col-span-2">
+                <div className="md:col-span-2 xl:col-span-3">
                     <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" />
                 </div>
             </div>
 
-            {/* NFC Scan Section */}
             <div className="rounded-xl border border-[#4a4b4d] bg-[#2d2e32] p-5">
                 <div className="flex items-center gap-2 mb-4">
                     <CreditCard className="w-5 h-5 text-[#74CD25]" />
@@ -443,7 +592,7 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                     {scanning ? (
                         <button
                             type="button"
-                            onClick={stopScan}
+                            onClick={handleStopScan}
                             className="flex items-center gap-2 px-5 py-3 bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg font-semibold text-sm hover:bg-red-500/30 transition-all"
                         >
                             <WifiOff className="w-4 h-4" />
@@ -461,19 +610,17 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                     )}
                 </div>
 
-                {/* Scanning indicator */}
                 {scanning && (
                     <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-[#74CD25]/10 border border-[#74CD25]/20">
                         <div className="relative flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#74CD25] opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-3 w-3 bg-[#74CD25]"></span>
                         </div>
-                        <span className="text-sm text-[#74CD25] font-medium">Menunggu scan kartu NFC... Tempelkan kartu ke reader</span>
+                        <span className="text-sm text-[#74CD25] font-medium">Menunggu scan kartu NFC...</span>
                     </div>
                 )}
 
-                {/* Success indicator */}
-                {nfcId && !scanning && (
+                {form.idCardNfc && !scanning && (
                     <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                         <Check className="w-4 h-4 text-emerald-400" />
                         <span className="text-sm text-emerald-400 font-medium">Kartu NFC berhasil terbaca</span>
@@ -482,24 +629,26 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
             </div>
 
             <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Simpan Data Operator
                 </button>
             </div>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.operator.title}
-                columns={PREVIEW_TABLES.operator.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.operator.title}
+                    columns={PREVIEW_TABLES.operator.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </form>
     );
 };
 
 // Input Data Lokasi Component
-const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
+const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ name: "", latitude: "", longitude: "", radius: "", type: "circle" });
     const [loading, setLoading] = useState(false);
     const mapRef = useRef(null);
@@ -589,26 +738,112 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
         zIndex: 1
     };
 
+    if (compact) {
+        return (
+            <form onSubmit={handleSubmit} className="h-full flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                    <div className="xl:col-span-2">
+                        <FormInput label="Nama Lokasi" name="name" value={form.name} onChange={handleChange} placeholder="Site A" required compact />
+                    </div>
+                    <FormInput label="Latitude" name="latitude" value={form.latitude} onChange={handleChange} placeholder="-5.123456" required compact />
+                    <FormInput label="Longitude" name="longitude" value={form.longitude} onChange={handleChange} placeholder="119.123456" required compact />
+                    <FormInput label="Radius (meter)" name="radius" value={form.radius} onChange={handleChange} type="number" placeholder="500" required compact />
+                </div>
+
+                <div className="rounded-lg border border-[#4a4b4d] bg-[#2d2e32] p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-[#74CD25]" />
+                            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Preview Lokasi (Circle)</h3>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#26272b] rounded-lg overflow-hidden border border-[#4a4b4d]" style={{ height: "110px" }}>
+                        {loadError && (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <p className="text-sm text-red-500">Error loading Google Maps</p>
+                            </div>
+                        )}
+                        {!isLoaded && !loadError && (
+                            <div className="w-full h-full flex items-center justify-center bg-[#2d2e32]">
+                                <Loader2 className="w-4 h-4 text-[#74CD25] animate-spin" />
+                                <span className="ml-2 text-sm text-gray-400">Loading map...</span>
+                            </div>
+                        )}
+                        {isLoaded && !hasValidCoords && (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <p className="text-sm text-gray-500">Masukkan koordinat untuk preview lokasi</p>
+                            </div>
+                        )}
+                        {isLoaded && hasValidCoords && (
+                            <GoogleMap
+                                mapContainerStyle={{ width: "100%", height: "100%" }}
+                                center={{ lat, lng }}
+                                zoom={15}
+                                options={mapOptions}
+                                onLoad={onMapLoad}
+                            >
+                                <Marker position={{ lat, lng }} />
+                                <Circle
+                                    center={{ lat, lng }}
+                                    radius={radius}
+                                    options={circleOptions}
+                                />
+                            </GoogleMap>
+                        )}
+                    </div>
+                </div>
+
+                {hasValidCoords ? (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400">
+                        <span><strong className="text-white">Lat:</strong> {lat.toFixed(6)}</span>
+                        <span><strong className="text-white">Lng:</strong> {lng.toFixed(6)}</span>
+                        <span><strong className="text-white">Radius:</strong> {radius} meter</span>
+                    </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#74CD25] text-white rounded-lg font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50"
+                    >
+                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        Simpan Lokasi
+                    </button>
+                </div>
+
+                {showPreview ? (
+                    <PreviewTable
+                        title={PREVIEW_TABLES.lokasi.title}
+                        columns={PREVIEW_TABLES.lokasi.columns}
+                        rows={rows}
+                        manageHref={manageHref}
+                    />
+                ) : null}
+            </form>
+        );
+    }
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="md:col-span-2 xl:col-span-3">
                     <FormInput label="Nama Lokasi" name="name" value={form.name} onChange={handleChange} placeholder="Site A" required />
                 </div>
                 <FormInput label="Latitude" name="latitude" value={form.latitude} onChange={handleChange} placeholder="-5.123456" required />
                 <FormInput label="Longitude" name="longitude" value={form.longitude} onChange={handleChange} placeholder="119.123456" required />
                 <FormInput label="Radius (meter)" name="radius" value={form.radius} onChange={handleChange} type="number" placeholder="500" required />
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-sm text-gray-400">Type</label>
-                    <div className="bg-[#2d2e32] text-white px-4 py-2.5 rounded-lg border border-[#4a4b4d] flex items-center gap-2">
-                        <span className="text-[#74CD25] font-medium">● Circle</span>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Type</label>
+                    <div className="bg-[#2d2e32] text-white px-4 py-3 rounded-xl border border-white/10 flex items-center gap-2">
+                        <span className="text-[#74CD25] font-medium">Circle</span>
                         <span className="text-gray-500 text-xs">(Auto)</span>
                     </div>
                 </div>
             </div>
 
-            {/* Google Maps Preview */}
-            <div className="bg-[#2d2e32] rounded-lg overflow-hidden border border-[#4a4b4d]" style={{ height: '300px' }}>
+            <div className="bg-[#2d2e32] rounded-lg overflow-hidden border border-[#4a4b4d]" style={{ height: "300px" }}>
                 {loadError && (
                     <div className="w-full h-full flex items-center justify-center">
                         <p className="text-red-500">Error loading Google Maps</p>
@@ -630,15 +865,13 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
                 )}
                 {isLoaded && hasValidCoords && (
                     <GoogleMap
-                        mapContainerStyle={{ width: '100%', height: '100%' }}
+                        mapContainerStyle={{ width: "100%", height: "100%" }}
                         center={{ lat, lng }}
                         zoom={15}
                         options={mapOptions}
                         onLoad={onMapLoad}
                     >
-                        {/* Marker di titik pusat */}
                         <Marker position={{ lat, lng }} />
-                        {/* Circle geofence */}
                         <Circle
                             center={{ lat, lng }}
                             radius={radius}
@@ -648,7 +881,6 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
                 )}
             </div>
 
-            {/* Info koordinat */}
             {hasValidCoords && (
                 <div className="flex items-center gap-4 text-sm text-gray-400 bg-[#2d2e32] px-4 py-2 rounded-lg">
                     <span><strong className="text-white">Lat:</strong> {lat.toFixed(6)}</span>
@@ -658,23 +890,25 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
             )}
 
             <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Simpan Data Lokasi
                 </button>
             </div>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.lokasi.title}
-                columns={PREVIEW_TABLES.lokasi.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.lokasi.title}
+                    columns={PREVIEW_TABLES.lokasi.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </form>
     );
 };
 
-const InputShiftCode = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
+const InputShiftCode = ({ showToast, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ namaShift: "", kodeShift: "", rentangWaktu: "", keterangan: "" });
     const [loading, setLoading] = useState(false);
 
@@ -697,36 +931,41 @@ const InputShiftCode = ({ showToast, rows, onSaved, manageHref = "/parameter/vie
 
     return (
         <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-white mb-2">Input Shift Code</h2>
-            <p className="text-gray-400 text-sm mb-6">Kelola parameter shift sesuai datasheet operasi.</p>
+            {!compact ? <h2 className="text-2xl font-black text-white mb-1.5 tracking-tight uppercase">Input Shift Code</h2> : null}
+            {!compact ? <p className="text-gray-500 text-xs mb-8 font-bold uppercase tracking-widest">Kelola parameter shift sesuai datasheet operasi</p> : null}
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormInput label="Nama Shift" name="namaShift" value={form.namaShift} onChange={handleChange} placeholder="DAY SHIFT" required />
-                    <FormInput label="Kode Shift" name="kodeShift" value={form.kodeShift} onChange={handleChange} placeholder="21" required />
-                    <FormInput label="Rentang Waktu" name="rentangWaktu" value={form.rentangWaktu} onChange={handleChange} placeholder="06.00 - 18.00" required />
-                    <FormInput label="Keterangan" name="keterangan" value={form.keterangan} onChange={handleChange} placeholder="Opsional" />
+            <form onSubmit={handleSubmit} className={cn("space-y-6 max-w-3xl", compact && "space-y-4 max-w-full")}>
+                <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", compact && "gap-3")}>
+                    <FormInput label="Nama Shift" name="namaShift" value={form.namaShift} onChange={handleChange} placeholder="DAY SHIFT" required compact={compact} />
+                    <FormInput label="Kode Shift" name="kodeShift" value={form.kodeShift} onChange={handleChange} placeholder="21" required compact={compact} />
+                    <FormInput label="Rentang Waktu" name="rentangWaktu" value={form.rentangWaktu} onChange={handleChange} placeholder="06.00 - 18.00" required compact={compact} />
+                    <FormInput label="Keterangan" name="keterangan" value={form.keterangan} onChange={handleChange} placeholder="Opsional" compact={compact} />
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                    <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
+                    <button type="submit" disabled={loading} className={cn(
+                        "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
+                        compact && "px-5 py-2.5 text-[11px]"
+                    )}>
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Simpan Shift Code
                     </button>
                 </div>
             </form>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.shiftCode.title}
-                columns={PREVIEW_TABLES.shiftCode.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.shiftCode.title}
+                    columns={PREVIEW_TABLES.shiftCode.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </div>
     );
 };
 
-const InputMaterialType = ({ showToast, rows, onSaved, manageHref = "/parameter/view" }) => {
+const InputMaterialType = ({ showToast, rows, onSaved, manageHref = "/parameter/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ jenisMuatan: "" });
     const [loading, setLoading] = useState(false);
 
@@ -752,32 +991,37 @@ const InputMaterialType = ({ showToast, rows, onSaved, manageHref = "/parameter/
 
     return (
         <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-white mb-2">Input Material Type</h2>
-            <p className="text-gray-400 text-sm mb-6">Kelola parameter jenis muatan sesuai datasheet material.</p>
+            {!compact ? <h2 className="text-2xl font-black text-white mb-1.5 tracking-tight uppercase">Input Material Type</h2> : null}
+            {!compact ? <p className="text-gray-500 text-xs mb-8 font-bold uppercase tracking-widest">Kelola parameter jenis muatan sesuai datasheet material</p> : null}
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
-                <FormInput label="Jenis Muatan" name="jenisMuatan" value={form.jenisMuatan} onChange={handleChange} placeholder="OVERBURDEN (OB)" required />
+            <form onSubmit={handleSubmit} className={cn("space-y-6 max-w-xl", compact && "space-y-4 max-w-full")}>
+                <FormInput label="Jenis Muatan" name="jenisMuatan" value={form.jenisMuatan} onChange={handleChange} placeholder="OVERBURDEN (OB)" required compact={compact} />
 
-                <div className="flex gap-3 pt-4">
-                    <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
+                    <button type="submit" disabled={loading} className={cn(
+                        "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
+                        compact && "px-5 py-2.5 text-[11px]"
+                    )}>
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Simpan Material Type
                     </button>
                 </div>
             </form>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.materialType.title}
-                columns={PREVIEW_TABLES.materialType.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.materialType.title}
+                    columns={PREVIEW_TABLES.materialType.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </div>
     );
 };
 
 // User Management Tab Component
-const UserManagementTab = ({ showToast, rows, onSaved, manageHref = "/setup/view" }) => {
+const UserManagementTab = ({ showToast, rows, onSaved, manageHref = "/setup/view", showPreview = true, compact = false }) => {
     const [form, setForm] = useState({ nama: "", email: "", password: "", noTelp: "", fotoProfil: null });
     const [showPassword, setShowPassword] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
@@ -810,58 +1054,69 @@ const UserManagementTab = ({ showToast, rows, onSaved, manageHref = "/setup/view
 
     return (
         <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-white mb-2">User Management</h2>
-            <p className="text-gray-400 text-sm mb-6">Kelola akun pengawas lapangan</p>
+            {!compact ? <h2 className="text-2xl font-black text-white mb-1.5 tracking-tight uppercase">User Management</h2> : null}
+            {!compact ? <p className="text-gray-500 text-xs mb-8 font-bold uppercase tracking-widest">Kelola akun pengawas lapangan dan hak akses</p> : null}
 
-            <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm text-gray-400">Foto Profil</label>
-                    <div className="flex items-center gap-4">
+            <form onSubmit={handleSubmit} className={cn("space-y-6 max-w-2xl", compact && "space-y-4 max-w-full rounded-xl bg-[#2d2e32] p-4 border border-white/5")}>
+                <div className={cn("flex flex-col gap-2", compact && "gap-1.5")}>
+                    <label className={cn("text-sm text-gray-400", compact && "text-xs font-bold uppercase tracking-widest text-gray-500")}>Foto Profil</label>
+                    <div className={cn("flex items-center gap-4", compact && "gap-3")}>
                         {previewImage ? (
-                            <img src={previewImage} alt="Preview" className="w-20 h-20 object-cover rounded-full border-2 border-[#74CD25]" />
+                            <img src={previewImage} alt="Preview" className={cn("w-20 h-20 object-cover rounded-full border-2 border-[#74CD25]", compact && "w-16 h-16")} />
                         ) : (
-                            <div className="w-20 h-20 bg-[#4a4b4d] rounded-full flex items-center justify-center">
-                                <User className="w-8 h-8 text-gray-400" />
+                            <div className={cn("w-20 h-20 bg-[#4a4b4d] rounded-full flex items-center justify-center", compact && "w-16 h-16")}>
+                                <User className={cn("w-8 h-8 text-gray-400", compact && "w-6 h-6")} />
                             </div>
                         )}
-                        <label className="flex items-center gap-2 px-4 py-2.5 bg-[#4a4b4d] text-white rounded-lg cursor-pointer hover:bg-[#5a5b5d] transition-colors">
-                            <Upload className="w-4 h-4" />
+                        <label className={cn(
+                            "flex items-center gap-2 px-5 py-2.5 bg-[#4a4b4d] text-white rounded-xl cursor-pointer hover:bg-[#5a5b5d] transition-all font-bold text-xs uppercase tracking-widest shadow-lg shadow-black/20",
+                            compact && "px-4 py-2 text-[11px]"
+                        )}>
+                            <Upload className={cn("w-4 h-4", compact && "w-3.5 h-3.5")} />
                             Upload Foto
                             <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                         </label>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormInput label="Nama Lengkap" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama pengawas" required />
-                    <FormInput label="Email" name="email" value={form.email} onChange={handleChange} type="email" placeholder="email@example.com" required />
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-sm text-gray-400">Password <span className="text-red-400">*</span></label>
+                <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", compact && "gap-3")}>
+                    <FormInput label="Nama Lengkap" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama pengawas" required compact={compact} />
+                    <FormInput label="Email" name="email" value={form.email} onChange={handleChange} type="email" placeholder="email@example.com" required compact={compact} />
+                    <div className={cn("flex flex-col gap-1.5", compact && "gap-1")}>
+                        <label className={cn("text-xs font-bold text-gray-500 uppercase tracking-widest", compact && "tracking-[0.12em]")}>Password <span className="text-red-500">*</span></label>
                         <div className="relative">
                             <input type={showPassword ? "text" : "password"} name="password" value={form.password} onChange={handleChange} placeholder="********"
-                                className="w-full bg-[#2d2e32] text-white px-4 py-2.5 pr-12 rounded-lg border border-[#4a4b4d] focus:border-[#74CD25] focus:outline-none" />
+                                className={cn(
+                                    "w-full bg-[#2d2e32] text-white px-4 py-3 pr-12 rounded-xl border border-white/10 focus:border-[#74CD25] focus:outline-none transition-all text-sm",
+                                    compact && "px-3 py-2.5 pr-10 rounded-lg"
+                                )} />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                {showPassword ? <EyeOff className={cn("w-5 h-5", compact && "w-4 h-4")} /> : <Eye className={cn("w-5 h-5", compact && "w-4 h-4")} />}
                             </button>
                         </div>
                     </div>
-                    <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required />
+                    <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required compact={compact} />
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                    <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#74CD25] text-white rounded-lg font-semibold hover:bg-[#5fa01c] transition-colors shadow-lg disabled:opacity-50">
+                <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
+                    <button type="submit" disabled={loading} className={cn(
+                        "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
+                        compact && "px-5 py-2.5"
+                    )}>
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Simpan User
                     </button>
                 </div>
             </form>
 
-            <PreviewTable
-                title={PREVIEW_TABLES.users.title}
-                columns={PREVIEW_TABLES.users.columns}
-                rows={rows}
-                manageHref={manageHref}
-            />
+            {showPreview ? (
+                <PreviewTable
+                    title={PREVIEW_TABLES.users.title}
+                    columns={PREVIEW_TABLES.users.columns}
+                    rows={rows}
+                    manageHref={manageHref}
+                />
+            ) : null}
         </div>
     );
 };
@@ -889,6 +1144,12 @@ export default function ConfigScreen({
     const [kalibrasiRows, setKalibrasiRows] = useState([]);
     const [userRows, setUserRows] = useState([]);
     const activeInputTabs = inputTabMode === "parameter" ? PARAMETER_INPUT_TABS : INPUT_DATA_TABS;
+    const isParameterMode = inputTabMode === "parameter";
+    const isSetupMode = !showPrimaryTabs && !showInputTabs;
+    const showPreviewTables = inputTabMode !== "parameter" && !isSetupMode;
+    const activeManageHref = `${manageHref}?tab=${activeInputTab}`;
+    const activeSetupManageTab = activeTab === "user-management" ? "users" : activeTab;
+    const activeSetupManageHref = `${manageHref}?tab=${activeSetupManageTab}`;
 
     const loadAlatData = useCallback(async () => {
         const res = await alatService.getAll();
@@ -956,24 +1217,35 @@ export default function ConfigScreen({
     const showToast = (message, type) => setToast({ message, type });
 
     return (
-        <PageLayout className="p-6">
+        <PageLayout noScroll={true} className="p-6">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
-                <p className="mt-2 text-sm text-gray-400">{pageDescription}</p>
+            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-white tracking-tight">{pageTitle}</h1>
+                    <p className="mt-1 text-sm text-gray-400">{pageDescription}</p>
+                </div>
+                {isParameterMode || isSetupMode ? (
+                    <Link
+                        to={isSetupMode ? activeSetupManageHref : activeManageHref}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#74CD25]/40 bg-[#74CD25]/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-[#74CD25] transition hover:bg-[#74CD25]/20"
+                    >
+                        <Eye className="h-3.5 w-3.5" />
+                        {isSetupMode ? "Ke View Setup" : "Ke View Parameter"}
+                    </Link>
+                ) : null}
             </div>
 
             {showPrimaryTabs && (
-                <div className="flex gap-2 mb-6 bg-[#2d2e32] p-2 rounded-xl w-fit">
+                <div className="flex gap-2 mb-6 bg-[#2d2e32] p-1.5 rounded-2xl w-fit border border-white/5 shadow-inner overflow-x-auto max-w-full">
                     {TABS.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-200
-                    ${isActive ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30" : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"}`}>
-                                <Icon className="w-5 h-5" />
+                                className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl font-bold transition-all duration-300 tracking-tight text-sm
+                    ${isActive ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/40 scale-105" : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"}`}>
+                                <Icon className="w-4.5 h-4.5" />
                                 {tab.label}
                             </button>
                         );
@@ -981,64 +1253,113 @@ export default function ConfigScreen({
                 </div>
             )}
 
-            <div className="bg-[#343538] rounded-xl p-6 min-h-[500px]">
-                {parameterView === "shift-code" && (
-                    <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} />
-                )}
+            <div className="bg-[#343538] rounded-3xl p-8 shadow-2xl border border-white/5 flex-1 min-h-0 flex flex-col relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-[#74CD25]/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                
+                <div className={`flex-1 ${showPreviewTables ? "overflow-y-auto custom-scrollbar pr-2" : "overflow-hidden"}`}>
+                    {!parameterView && activeTab === "kalibrasi" && (
+                        <KalibrasiTab
+                            showToast={showToast}
+                            alatList={alatList}
+                            rows={kalibrasiRows}
+                            onSaved={loadKalibrasiData}
+                            manageHref={`${manageHref}?tab=kalibrasi`}
+                            showPreview={showPreviewTables}
+                            compact={isSetupMode}
+                        />
+                    )}
 
-                {parameterView === "material-type" && (
-                    <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} />
-                )}
+                    {!parameterView && activeTab === "input-data" && (
+                        isParameterMode ? (
+                            <div className="animate-fade-in relative flex min-h-0 flex-1 flex-col">
+                                {showInputTabs && (
+                                    <div className="mb-6">
+                                        <div className="flex gap-2 bg-[#2d2e32] p-1.5 rounded-2xl w-fit border border-white/5 shadow-inner overflow-x-auto max-w-full">
+                                            {activeInputTabs.map((tab) => {
+                                                const Icon = tab.icon;
+                                                const isActive = activeInputTab === tab.id;
+                                                return (
+                                                    <button
+                                                        key={tab.id}
+                                                        onClick={() => setActiveInputTab(tab.id)}
+                                                        className={`flex shrink-0 items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold transition-all duration-300 tracking-tight text-xs whitespace-nowrap ${
+                                                            isActive
+                                                                ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/40 scale-105"
+                                                                : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"
+                                                        }`}
+                                                    >
+                                                        <Icon className="w-4 h-4" />
+                                                        {tab.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
-                {!parameterView && activeTab === "kalibrasi" && (
-                    <KalibrasiTab
-                        showToast={showToast}
-                        alatList={alatList}
-                        rows={kalibrasiRows}
-                        onSaved={loadKalibrasiData}
-                        manageHref={`${manageHref}?tab=kalibrasi`}
-                    />
-                )}
-
-                {!parameterView && activeTab === "input-data" && (
-                    <div className="animate-fade-in">
-                        {showInputTabs && (
-                            <div className="flex flex-wrap gap-2 mb-6 border-b border-[#4a4b4d] pb-4">
-                                {activeInputTabs.map((tab) => {
-                                    const Icon = tab.icon;
-                                    const isActive = activeInputTab === tab.id;
-                                    return (
-                                        <button key={tab.id} onClick={() => setActiveInputTab(tab.id)}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
-                          ${isActive ? "bg-[#74CD25]/20 text-[#74CD25] border border-[#74CD25]" : "bg-transparent text-gray-400 hover:bg-[#4a4b4d] hover:text-white border border-transparent"}`}>
-                                            <Icon className="w-4 h-4" />
-                                            {tab.label}
-                                        </button>
-                                    );
-                                })}
+                                <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#2d2e32] p-4 shadow-xl shadow-black/20">
+                                    <div className="h-full overflow-y-auto custom-scrollbar">
+                                        {activeInputTab === "shift-code" && (
+                                            <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} showPreview={showPreviewTables} compact={false} />
+                                        )}
+                                        {activeInputTab === "material-type" && (
+                                            <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} showPreview={showPreviewTables} compact={false} />
+                                        )}
+                                        {activeInputTab === "alat" && (
+                                            <InputDataAlat showToast={showToast} rows={alatRows} onSaved={loadAlatData} manageHref={`${manageHref}?tab=alat`} showPreview={showPreviewTables} compact={false} />
+                                        )}
+                                        {activeInputTab === "operator" && (
+                                            <InputDataOperator showToast={showToast} rows={operatorRows} onSaved={loadOperatorData} manageHref={`${manageHref}?tab=operator`} showPreview={showPreviewTables} compact={false} />
+                                        )}
+                                        {activeInputTab === "lokasi" && (
+                                            <InputDataLokasi showToast={showToast} rows={lokasiRows} onSaved={loadLokasiData} manageHref={`${manageHref}?tab=lokasi`} showPreview={showPreviewTables} compact={false} />
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                        {activeInputTab === "shift-code" && (
-                            <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} />
-                        )}
-                        {activeInputTab === "material-type" && (
-                            <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} />
-                        )}
-                        {activeInputTab === "alat" && (
-                            <InputDataAlat showToast={showToast} rows={alatRows} onSaved={loadAlatData} manageHref={`${manageHref}?tab=alat`} />
-                        )}
-                        {activeInputTab === "operator" && (
-                            <InputDataOperator showToast={showToast} rows={operatorRows} onSaved={loadOperatorData} manageHref={`${manageHref}?tab=operator`} />
-                        )}
-                        {activeInputTab === "lokasi" && (
-                            <InputDataLokasi showToast={showToast} rows={lokasiRows} onSaved={loadLokasiData} manageHref={`${manageHref}?tab=lokasi`} />
-                        )}
-                    </div>
-                )}
+                        ) : (
+                            <div className="animate-fade-in flex flex-col min-h-0">
+                                {showInputTabs && (
+                                    <div className="mb-8 flex flex-wrap gap-2 border-b border-white/5 pb-6">
+                                        {activeInputTabs.map((tab) => {
+                                            const Icon = tab.icon;
+                                            const isActive = activeInputTab === tab.id;
+                                            return (
+                                                <button key={tab.id} onClick={() => setActiveInputTab(tab.id)}
+                                                    className={`${cn(
+                                                        "flex items-center gap-2.5 rounded-xl transition-all duration-300 whitespace-nowrap px-5 py-2.5 text-[11px] font-black tracking-widest uppercase"
+                                                    )}
+                            ${isActive ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/20" : "bg-[#2d2e32] text-gray-500 hover:bg-[#4a4b4d] hover:text-white border border-white/5"}`}>
+                                                    <Icon className="w-3.5 h-3.5" />
+                                                    {tab.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {activeInputTab === "shift-code" && (
+                                    <InputShiftCode showToast={showToast} rows={shiftCodeRows} onSaved={loadShiftCodeData} manageHref={`${manageHref}?tab=shift-code`} showPreview={showPreviewTables} compact={false} />
+                                )}
+                                {activeInputTab === "material-type" && (
+                                    <InputMaterialType showToast={showToast} rows={materialTypeRows} onSaved={loadMaterialTypeData} manageHref={`${manageHref}?tab=material-type`} showPreview={showPreviewTables} compact={false} />
+                                )}
+                                {activeInputTab === "alat" && (
+                                    <InputDataAlat showToast={showToast} rows={alatRows} onSaved={loadAlatData} manageHref={`${manageHref}?tab=alat`} showPreview={showPreviewTables} compact={false} />
+                                )}
+                                {activeInputTab === "operator" && (
+                                    <InputDataOperator showToast={showToast} rows={operatorRows} onSaved={loadOperatorData} manageHref={`${manageHref}?tab=operator`} showPreview={showPreviewTables} compact={false} />
+                                )}
+                                {activeInputTab === "lokasi" && (
+                                    <InputDataLokasi showToast={showToast} rows={lokasiRows} onSaved={loadLokasiData} manageHref={`${manageHref}?tab=lokasi`} showPreview={showPreviewTables} compact={false} />
+                                )}
+                            </div>
+                        )
+                    )}
 
-                {!parameterView && activeTab === "user-management" && (
-                    <UserManagementTab showToast={showToast} rows={userRows} onSaved={loadUserData} manageHref={manageHref} />
-                )}
+                    {!parameterView && activeTab === "user-management" && (
+                        <UserManagementTab showToast={showToast} rows={userRows} onSaved={loadUserData} manageHref={manageHref} showPreview={showPreviewTables} compact={isSetupMode} />
+                    )}
+                </div>
             </div>
         </PageLayout>
     );

@@ -1,5 +1,5 @@
 export const analysisTableShellClass = "overflow-hidden rounded-xl border border-[#4a4b4d]";
-export const analysisTableScrollClass = "overflow-x-auto scrollbar-hide";
+export const analysisTableScrollClass = "overflow-auto custom-scrollbar";
 export const analysisTableClass = "w-full";
 export const analysisTableHeadClass = "sticky top-0 z-10";
 export const analysisHeaderRowClass = "bg-gradient-to-r from-[#4A8516] to-[#5FA81E]";

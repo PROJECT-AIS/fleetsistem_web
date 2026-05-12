@@ -2,6 +2,24 @@
 @import "leaflet/dist/leaflet.css";
 @import "./styles/animations.css";
 
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  height: -webkit-fill-available;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  background-color: #1E1F22;
+  user-select: none;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 /* ========== Custom Scrollbar Styles ========== */
 
 /* Universal beautiful scrollbar - Chrome, Safari, Edge */

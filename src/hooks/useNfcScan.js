@@ -26,13 +26,15 @@ export const useNfcScan = ({ timeout = 30000 } = {}) => {
         if (clientRef.current) {
             try {
                 clientRef.current.end(true);
-            } catch (_) { /* ignore */ }
+            } catch { /* ignore */ }
             clientRef.current = null;
         }
         setScanning(false);
     }, []);
 
     const stopScan = useCallback(() => {
+        setNfcId(null);
+        setError(null);
         cleanup();
     }, [cleanup]);
 
@@ -59,8 +61,9 @@ export const useNfcScan = ({ timeout = 30000 } = {}) => {
                 client.subscribe(NFC_TOPIC, { qos: 1 });
             });
 
-            client.on('message', (_topic, message) => {
+            client.on('message', (topic, message) => {
                 try {
+                    void topic;
                     const raw = message.toString().trim();
                     console.log('[NFC Scan] Received:', raw);
 
@@ -72,7 +75,7 @@ export const useNfcScan = ({ timeout = 30000 } = {}) => {
                         // Support various payload shapes:
                         // { uid: "..." } or { nfc_uid: "..." } or { id: "..." } or { card_id: "..." }
                         uid = data.uid || data.nfc_uid || data.id || data.card_id || data.UID || data.NFC_UID || null;
-                    } catch (_) {
+                    } catch {
                         // If not JSON, treat raw string as the UID itself
                         uid = raw;
                     }

@@ -1,9 +1,8 @@
 import {
-  BarChart3,
+  Activity,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChartColumn,
   Clock,
   Database,
   Eye,
@@ -13,6 +12,7 @@ import {
   SlidersHorizontal,
   Users,
   Map,
+  PieChart,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
     children: [
       { path: '/setup/user-management', icon: Users, label: 'User Management' },
       { path: '/setup/sensor-calibration', icon: Fuel, label: 'Sensor Calibration' },
+      { path: '/setup/view', icon: Eye, label: 'View Setup' },
     ],
   },
   {
@@ -61,8 +62,8 @@ const NAV_ITEMS = [
       { path: '/data-trip', icon: Map, label: 'Data Trip' },
     ],
   },
-  { type: 'link', path: '/analysis', icon: BarChart3, label: 'Analysis' },
-  { type: 'link', path: '/statistics', icon: ChartColumn, label: 'Statistik & Chart' },
+  { type: 'link', path: '/analysis', icon: Activity, label: 'Analysis' },
+  { type: 'link', path: '/statistics', icon: PieChart, label: 'Statistik & Chart' },
 ]
 
 const isPathActive = (pathname, path) => pathname === path
@@ -107,10 +108,10 @@ export default function SideBar() {
   }
 
   return (
-    <div className="self-stretch flex flex-col py-6 px-3">
+    <div className="self-stretch min-h-0 flex flex-col px-3 py-6">
       <div
         className={`
-          bg-[#343538] rounded-2xl shadow-xl flex flex-col flex-1
+          bg-[#343538] rounded-2xl shadow-xl flex flex-col flex-1 min-h-0 overflow-hidden
           transition-all duration-300 ease-in-out
           ${isSidebarOpen ? 'w-72 px-4 py-5' : 'w-[76px] px-2 py-5 items-center'}
         `}
@@ -127,94 +128,94 @@ export default function SideBar() {
           {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
 
-        <nav className={`flex flex-col gap-3 ${isSidebarOpen ? '' : 'w-full items-center'}`}>
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
+        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar ${isSidebarOpen ? 'pr-1' : 'w-full'}`}>
+          <nav className={`flex flex-col gap-3 ${isSidebarOpen ? '' : 'w-full items-center'}`}>
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon
 
-            if (item.type === 'link') {
-              const active = isPathActive(location.pathname, item.path)
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`
+              if (item.type === 'link') {
+                const active = isPathActive(location.pathname, item.path)
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className={`
                     flex items-center gap-3 rounded-xl font-semibold transition-all duration-200
                     ${isSidebarOpen ? 'px-4 py-3' : 'h-14 w-14 justify-center'}
                     ${active
                       ? 'bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30'
                       : 'bg-[#4A4B4D] text-gray-300 hover:bg-[#5A5B5D] hover:text-white'}
                   `}
-                  title={!isSidebarOpen ? item.label : undefined}
+                    title={!isSidebarOpen ? item.label : undefined}
+                  >
+                    <Icon className="w-6 h-6 flex-shrink-0" />
+                    {isSidebarOpen && <span className="whitespace-nowrap">{item.label}</span>}
+                  </button>
+                )
+              }
+
+              const groupActive = item.children.some((child) => isNavChildActive(location.pathname, child))
+
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-2xl bg-[#2D2E32] ${isSidebarOpen ? 'p-2' : 'w-full bg-transparent p-0'}`}
                 >
-                  <Icon className="w-6 h-6 flex-shrink-0" />
-                  {isSidebarOpen && <span className="whitespace-nowrap">{item.label}</span>}
-                </button>
-              )
-            }
-
-            const groupActive = item.children.some((child) => isNavChildActive(location.pathname, child))
-
-            return (
-              <div
-                key={item.id}
-                className={`rounded-2xl bg-[#2D2E32] ${isSidebarOpen ? 'p-2' : 'w-full bg-transparent p-0'}`}
-              >
-                <button
-                  onClick={() => {
-                    if (!isSidebarOpen) {
-                      setIsSidebarOpen(true)
-                    } else {
-                      toggleGroup(item.id)
-                    }
-                  }}
-                  className={`
+                  <button
+                    onClick={() => {
+                      if (!isSidebarOpen) {
+                        setIsSidebarOpen(true)
+                      } else {
+                        toggleGroup(item.id)
+                      }
+                    }}
+                    className={`
                     flex w-full items-center gap-3 rounded-xl px-3 py-3 font-semibold transition-all duration-200
                     ${groupActive ? 'bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/20' : 'text-gray-300 hover:bg-[#4A4B4D] hover:text-white'}
                     ${!isSidebarOpen ? 'mx-auto h-14 w-14 justify-center px-0' : ''}
                   `}
-                  title={!isSidebarOpen ? item.label : undefined}
-                >
-                  <Icon className="w-6 h-6 flex-shrink-0" />
-                  {isSidebarOpen && (
-                    <>
-                      <span className="flex-1 text-left">{item.label}</span>
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${openGroups[item.id] ? 'rotate-180' : ''}`}
-                      />
-                    </>
-                  )}
-                </button>
+                    title={!isSidebarOpen ? item.label : undefined}
+                  >
+                    <Icon className="w-6 h-6 flex-shrink-0" />
+                    {isSidebarOpen && (
+                      <>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${openGroups[item.id] ? 'rotate-180' : ''}`}
+                        />
+                      </>
+                    )}
+                  </button>
 
-                
+                  {isSidebarOpen && openGroups[item.id] && (
+                    <div className="mt-2 flex flex-col gap-2 pl-2">
+                      {item.children.map((child) => {
+                        const ChildIcon = child.icon
+                        const childActive = isNavChildActive(location.pathname, child)
 
-                {isSidebarOpen && openGroups[item.id] && (
-                  <div className="mt-2 flex flex-col gap-2 pl-2">
-                    {item.children.map((child) => {
-                      const ChildIcon = child.icon
-                      const childActive = isNavChildActive(location.pathname, child)
-
-                      return (
-                        <button
-                          key={child.path}
-                          onClick={() => navigate(child.path)}
-                          className={`
+                        return (
+                          <button
+                            key={child.path}
+                            onClick={() => navigate(child.path)}
+                            className={`
                             flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200
                             ${childActive
                               ? 'bg-[#74CD25]/20 text-[#A6F268] border border-[#74CD25]/50'
                               : 'text-gray-300 hover:bg-[#4A4B4D] hover:text-white border border-transparent'}
                           `}
-                        >
-                          <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                          <span>{child.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </nav>
+                          >
+                            <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                            <span>{child.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </nav>
+        </div>
 
         <ChatOverlay isSidebarOpen={isSidebarOpen} />
       </div>
