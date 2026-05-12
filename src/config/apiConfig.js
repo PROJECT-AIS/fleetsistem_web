@@ -7,11 +7,12 @@ const configuredBackendUrl = trimTrailingSlash(import.meta.env.VITE_BACKEND_URL 
 
 export const API_BASE_URL = configuredApiUrl;
 
+const isRelative = configuredApiUrl.startsWith("/");
 const backendFromApi = configuredApiUrl.endsWith("/api")
     ? configuredApiUrl.slice(0, -4)
     : configuredApiUrl;
 
-export const BACKEND_BASE_URL = configuredBackendUrl || backendFromApi || DEFAULT_BACKEND_ORIGIN;
+export const BACKEND_BASE_URL = configuredBackendUrl || (isRelative ? "" : backendFromApi) || DEFAULT_BACKEND_ORIGIN;
 
 export const resolveBackendUrl = (path = "") => {
     if (!path) {
