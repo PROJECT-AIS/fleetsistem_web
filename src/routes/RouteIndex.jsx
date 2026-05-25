@@ -15,7 +15,7 @@ const LoadingFallback = () => (
       </div>
       <div className="flex flex-col items-center gap-1">
         <span className="text-white font-black text-2xl tracking-[0.2em]">FMS SYSTEM</span>
-        <span className="text-gray-500 font-bold text-xs tracking-widest uppercase">Initializing Tactical Data...</span>
+        <span className="text-gray-500 font-bold text-xs tracking-widest uppercase">Initializing Fleet Data...</span>
       </div>
     </div>
   </div>
@@ -29,7 +29,7 @@ const ProfileScreen = lazy(() => import('../components/views/profile/ProfileScre
 const History = lazy(() => import('../components/views/history/History'))
 const DataTrip = lazy(() => import('../components/views/history/DataTrip'))
 const Analysis = lazy(() => import('../components/views/analysis/Analysis'))
-const Statistics = lazy(() => import('../components/views/statistics/Statistics'))
+const Alerts = lazy(() => import('../components/views/alerts/Alerts'))
 const ConfigScreen = lazy(() => import('../components/views/config/ConfigScreen'))
 const ShowConfigScreen = lazy(() => import('../components/views/showconfig/ShowConfigScreen'))
 
@@ -275,7 +275,15 @@ function RouteIndex() {
             path='/statistics'
             element={
               <ProtectedRoute>
-                <Statistics />
+                <Navigate to='/analysis' replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/alerts'
+            element={
+              <ProtectedRoute>
+                <Alerts />
               </ProtectedRoute>
             }
           />

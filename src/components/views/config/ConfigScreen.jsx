@@ -4,7 +4,7 @@ import { useNfcScan } from "../../../hooks/useNfcScan";
 import PageLayout from "../../layout/PageLayout";
 import { alatService, operatorService, lokasiService, shiftCodeService, materialTypeService, kalibrasiService, pengawasService } from "../../../services/configService";
 import { GoogleMap, useJsApiLoader, Circle, Marker } from '@react-google-maps/api';
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MQTT_ACTIONS, publishMqttActions } from "../../../utils/mqttActions";
 import {
     analysisBodyCellClass,
@@ -42,8 +42,20 @@ const PARAMETER_INPUT_TABS = [
     { id: "operator", label: "Data Operator", icon: User },
     { id: "lokasi", label: "Data Lokasi", icon: MapPin },
 ];
+const PARAMETER_TAB_ROUTE_MAP = {
+    "shift-code": "/parameter/shift-code",
+    "material-type": "/parameter/material-type",
+    alat: "/parameter/equipment",
+    operator: "/parameter/operator",
+    lokasi: "/parameter/location",
+};
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
+const EQUIPMENT_STATUS_OPTIONS = [
+    { value: "Available", label: "Available" },
+    { value: "Maintenance", label: "Maintenance" },
+    { value: "Breakdown", label: "Breakdown" },
+];
 
 // Toast notification
 const Toast = ({ message, type, onClose }) => {
@@ -119,6 +131,49 @@ const FormSelect = ({ label, name, value, onChange, options, required = false, c
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
         </select>
+    </div>
+);
+
+const ImageUploadField = ({
+    label = "Gambar Unit",
+    previewImage,
+    onChange,
+    compact = false,
+    hint = "Jika tidak diunggah, dashboard akan memakai ikon default kendaraan.",
+    icon: iconComponent = Truck,
+}) => (
+    <div className={cn("flex flex-col gap-2", compact && "gap-1.5")}>
+        <label className={cn("text-xs font-bold uppercase tracking-widest text-gray-500", compact && "tracking-[0.12em]")}>
+            {label}
+        </label>
+        <div className={cn("flex items-center gap-4", compact && "gap-3")}>
+            {previewImage ? (
+                <img
+                    src={previewImage}
+                    alt={label}
+                    className={cn("h-24 w-32 rounded-2xl border border-white/10 object-cover", compact && "h-20 w-28 rounded-xl")}
+                />
+            ) : (
+                <div className={cn("flex h-24 w-32 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#26272b]", compact && "h-20 w-28 rounded-xl")}>
+                    {React.createElement(iconComponent, {
+                        className: cn("h-8 w-8 text-gray-500", compact && "h-7 w-7"),
+                    })}
+                </div>
+            )}
+            <div className="space-y-2">
+                <label className={cn(
+                    "inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#4a4b4d] px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#5a5b5d]",
+                    compact && "px-4 py-2 text-[11px]"
+                )}>
+                    <Upload className={cn("h-4 w-4", compact && "h-3.5 w-3.5")} />
+                    Upload Gambar
+                    <input type="file" accept="image/*" onChange={onChange} className="hidden" />
+                </label>
+                <p className={cn("max-w-xs text-xs leading-5 text-gray-500", compact && "max-w-none text-[11px] leading-4")}>
+                    {hint}
+                </p>
+            </div>
+        </div>
     </div>
 );
 
@@ -340,11 +395,20 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
         kapasitasMuat: "", 
         kapasitasTangki: "", 
         tahunManufaktur: "", 
-        status: "Aktif" 
+        status: "Available",
+        gambar: null,
     });
+    const [previewImage, setPreviewImage] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setForm((prev) => ({ ...prev, gambar: file }));
+        setPreviewImage(URL.createObjectURL(file));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -360,8 +424,10 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
                 kapasitasMuat: "", 
                 kapasitasTangki: "", 
                 tahunManufaktur: "", 
-                status: "Aktif" 
+                status: "Available",
+                gambar: null,
             });
+            setPreviewImage("");
             onSaved?.();
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menyimpan data alat", "error");
@@ -381,12 +447,15 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
                 <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={handleChange} type="number" placeholder="400" compact={compact} />
                 <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={handleChange} type="number" placeholder="2024" compact={compact} />
                 <FormSelect label="Status" name="status" value={form.status} onChange={handleChange} compact={compact}
-                    options={[
-                        { value: "Aktif", label: "Aktif" },
-                        { value: "Maintenance", label: "Maintenance" },
-                        { value: "Non-Aktif", label: "Non-Aktif" },
-                    ]} required />
+                    options={EQUIPMENT_STATUS_OPTIONS} required />
             </div>
+
+            <ImageUploadField
+                previewImage={previewImage}
+                onChange={handleImageChange}
+                compact={compact}
+                hint="Gambar kendaraan akan tampil di dashboard saat unit pada mining fleet diklik."
+            />
             
             <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
@@ -459,20 +528,8 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                     <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} placeholder="OP-001" required compact />
                     <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama lengkap" required compact />
-                    <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange} compact
-                        options={[
-                            { value: "Driver", label: "Driver" },
-                            { value: "Operator", label: "Operator" },
-                            { value: "Supervisor", label: "Supervisor" },
-                            { value: "Mekanik", label: "Mekanik" },
-                        ]} required />
-                    <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange} compact
-                        options={[
-                            { value: "Operasional", label: "Operasional" },
-                            { value: "Logistik", label: "Logistik" },
-                            { value: "Maintenance", label: "Maintenance" },
-                            { value: "HSE", label: "HSE" },
-                        ]} required />
+                    <FormInput label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange} placeholder="Driver / Operator / Supervisor" required compact />
+                    <FormInput label="Divisi" name="divisi" value={form.divisi} onChange={handleChange} placeholder="Operasional / Maintenance / HSE" required compact />
                     <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required compact />
                     <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" compact />
                 </div>
@@ -552,20 +609,8 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} placeholder="OP-001" required />
                 <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} placeholder="Nama lengkap" required />
-                <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
-                    options={[
-                        { value: "Driver", label: "Driver" },
-                        { value: "Operator", label: "Operator" },
-                        { value: "Supervisor", label: "Supervisor" },
-                        { value: "Mekanik", label: "Mekanik" },
-                    ]} required />
-                <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
-                    options={[
-                        { value: "Operasional", label: "Operasional" },
-                        { value: "Logistik", label: "Logistik" },
-                        { value: "Maintenance", label: "Maintenance" },
-                        { value: "HSE", label: "HSE" },
-                    ]} required />
+                <FormInput label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange} placeholder="Driver / Operator / Supervisor" required />
+                <FormInput label="Divisi" name="divisi" value={form.divisi} onChange={handleChange} placeholder="Operasional / Maintenance / HSE" required />
                 <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} placeholder="08xxxxxxxxxx" required />
                 <div className="md:col-span-2 xl:col-span-3">
                     <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} placeholder="Alamat lengkap" />
@@ -1132,6 +1177,8 @@ export default function ConfigScreen({
     inputTabMode = "default",
     manageHref = "/parameter/view",
 }) {
+    const location = useLocation();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState(defaultTab);
     const [activeInputTab, setActiveInputTab] = useState(defaultInputTab);
     const [toast, setToast] = useState(null);
@@ -1198,11 +1245,11 @@ export default function ConfigScreen({
 
     useEffect(() => {
         setActiveTab(defaultTab);
-    }, [defaultTab]);
+    }, [defaultTab, location.pathname]);
 
     useEffect(() => {
         setActiveInputTab(defaultInputTab);
-    }, [defaultInputTab]);
+    }, [defaultInputTab, location.pathname]);
 
     useEffect(() => {
         loadAlatData().catch(console.error);
@@ -1215,6 +1262,18 @@ export default function ConfigScreen({
     }, [loadAlatData, loadOperatorData, loadLokasiData, loadShiftCodeData, loadMaterialTypeData, loadKalibrasiData, loadUserData]);
 
     const showToast = (message, type) => setToast({ message, type });
+    const handleInputTabChange = (tabId) => {
+        setActiveInputTab(tabId);
+
+        if (!isParameterMode) {
+            return;
+        }
+
+        const nextPath = PARAMETER_TAB_ROUTE_MAP[tabId];
+        if (nextPath && nextPath !== location.pathname) {
+            navigate(nextPath);
+        }
+    };
 
     return (
         <PageLayout noScroll={true} className="p-6">
@@ -1256,7 +1315,7 @@ export default function ConfigScreen({
             <div className="bg-[#343538] rounded-3xl p-8 shadow-2xl border border-white/5 flex-1 min-h-0 flex flex-col relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#74CD25]/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
                 
-                <div className={`flex-1 ${showPreviewTables ? "overflow-y-auto custom-scrollbar pr-2" : "overflow-hidden"}`}>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                     {!parameterView && activeTab === "kalibrasi" && (
                         <KalibrasiTab
                             showToast={showToast}
@@ -1281,7 +1340,7 @@ export default function ConfigScreen({
                                                 return (
                                                     <button
                                                         key={tab.id}
-                                                        onClick={() => setActiveInputTab(tab.id)}
+                                                        onClick={() => handleInputTabChange(tab.id)}
                                                         className={`flex shrink-0 items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold transition-all duration-300 tracking-tight text-xs whitespace-nowrap ${
                                                             isActive
                                                                 ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/40 scale-105"
@@ -1325,7 +1384,7 @@ export default function ConfigScreen({
                                             const Icon = tab.icon;
                                             const isActive = activeInputTab === tab.id;
                                             return (
-                                                <button key={tab.id} onClick={() => setActiveInputTab(tab.id)}
+                                                <button key={tab.id} onClick={() => handleInputTabChange(tab.id)}
                                                     className={`${cn(
                                                         "flex items-center gap-2.5 rounded-xl transition-all duration-300 whitespace-nowrap px-5 py-2.5 text-[11px] font-black tracking-widest uppercase"
                                                     )}

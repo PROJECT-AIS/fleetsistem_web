@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Download, Search, ChevronLeft, ChevronRight, Filter, RefreshCw, Truck, Clock } from "lucide-react";
+import { Download, Search, ChevronLeft, ChevronRight, Filter, RefreshCw } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import api from "../../../services/api";
-import { useMqttContext } from "../../../context/mqttContextValue";
+
 import {
   analysisBodyCellClass,
   analysisBodyClass,
@@ -56,24 +56,49 @@ const TripStatusBadge = ({ status }) => {
   );
 };
 
-const StatCard = ({
-  label,
-  value,
-  icon,
-  valueTone = "text-white",
-  iconTone = "text-[#74CD25]",
-  iconBg = "bg-[#74CD25]/10",
-}) => (
-  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5">
-    <div className="mb-1.5 flex items-center justify-between">
-      <span className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{label}</span>
-      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}>
-        {icon ? React.createElement(icon, { className: `h-4 w-4 ${iconTone}` }) : null}
-      </span>
-    </div>
-    <p className={`text-3xl font-black leading-none ${valueTone}`}>{value}</p>
-  </div>
-);
+const extractClockTime = (value) => {
+  if (value == null) return "";
+
+  const normalized = String(value).trim();
+  if (!normalized) return "";
+
+  const isoMatch = normalized.match(/T(\d{2}:\d{2}:\d{2})/);
+  if (isoMatch) return isoMatch[1];
+
+  const plainTimeMatch = normalized.match(/\b(\d{2}:\d{2}:\d{2})\b/);
+  if (plainTimeMatch) return plainTimeMatch[1];
+
+  return normalized;
+};
+
+const formatDateTime = (value) => {
+  if (value == null) return "-";
+
+  const normalized = String(value).trim();
+  if (!normalized || normalized === "-") return "-";
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2}:\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day, time] = isoMatch;
+    return `${day}/${month}/${year} ${time}`;
+  }
+
+  return normalized;
+};
+
+const formatTimeRange = (value) => {
+  if (value == null) return "-";
+
+  const normalized = String(value).trim();
+  if (!normalized || normalized === "-") return "-";
+
+  const parts = normalized.split(/\s+-\s+/);
+  if (parts.length === 2) {
+    return `${extractClockTime(parts[0])} - ${extractClockTime(parts[1])}`;
+  }
+
+  return extractClockTime(normalized);
+};
 
 export default function History() {
   const [dataLog, setDataLog] = useState([]);
@@ -85,7 +110,6 @@ export default function History() {
   const [filterTripStatus, setFilterTripStatus] = useState("all");
   const [filterDate, setFilterDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const itemsPerPage = 10;
 
@@ -96,7 +120,6 @@ export default function History() {
       const res = await api.get("/datalog");
       if (res.data?.ok) {
         setDataLog(res.data.data);
-        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error("Error fetching datalog:", error);
@@ -114,21 +137,7 @@ export default function History() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const { rawVehicles } = useMqttContext();
 
-  const stats = useMemo(() => {
-    const vehicles = Object.values(rawVehicles);
-    const onCount = vehicles.filter((v) => v.vehicle?.engine_on === true).length;
-    const passiveCount = vehicles.filter((v) => v.vehicle?.engine_on === true && v.vehicle?.moving === false).length;
-    const offCount = vehicles.filter((v) => v.vehicle?.engine_on === false).length;
-
-    return {
-      total: vehicles.length,
-      on: onCount,
-      passive: passiveCount,
-      off: offCount,
-    };
-  }, [rawVehicles]);
 
   const toSearchText = (value) => String(value ?? "").toLowerCase();
   const toFilterText = (value) => String(value ?? "").trim();
@@ -189,7 +198,7 @@ export default function History() {
     const XLSX = await import("xlsx");
     const excelData = filteredData.map((row, i) => ({
       NO: i + 1,
-      WAKTU: row.waktu || "",
+      WAKTU: formatDateTime(row.waktu),
       ID_ALAT: row.idAlat,
       NO_POL: row.noPol,
       "JENIS ALAT": row.jenisAlat,
@@ -204,12 +213,12 @@ export default function History() {
       "ANOMALI STATUS FUEL": row.anomaliStatusFuel,
       "FUEL MASUK": row.fuelMasuk,
       "STATUS ALAT": row.statusAlat,
-      START: row.start,
-      "RENTANG WAKTU AKTIF": row.rentangWaktuAktif,
+      START: extractClockTime(row.start),
+      "RENTANG WAKTU AKTIF": formatTimeRange(row.rentangWaktuAktif),
       "DURASI AKTIF": row.durasiAktif,
-      "RENTANG WAKTU PASSIF": row.rentangWaktuPassif,
+      "RENTANG WAKTU PASSIF": formatTimeRange(row.rentangWaktuPassif),
       "DURASI PASSIF": row.durasiPassif,
-      MATI: row.mati,
+      MATI: extractClockTime(row.mati),
       "NAMA OPERATOR": row.namaOperator,
       "ID OPERATOR": row.idOperator,
       "STATUS TRIP": row.statusTrip,
@@ -223,71 +232,6 @@ export default function History() {
 
   return (
     <PageLayout noScroll={true} className="flex flex-col gap-4 p-4 lg:p-6">
-      <div
-        className="relative shrink-0 overflow-hidden rounded-3xl border border-[#74CD25]/15 bg-[#1a2a1a]"
-        style={{ background: "linear-gradient(135deg, #1a2a1a 0%, #112314 45%, #182818 100%)" }}
-      >
-        <div
-          className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full opacity-[0.14]"
-          style={{ background: "radial-gradient(circle, #74CD25 0%, transparent 70%)" }}
-        />
-        <div
-          className="pointer-events-none absolute -bottom-20 left-1/3 h-56 w-56 rounded-full opacity-[0.08]"
-          style={{ background: "radial-gradient(circle, #74CD25 0%, transparent 70%)" }}
-        />
-
-        <div className="relative px-5 pb-5 pt-5 lg:px-6 lg:pb-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white lg:text-[30px]">Data Log</h1>
-              <p className="mt-1 text-sm tracking-wide text-gray-400">Monitoring aktivitas unit kendaraan secara real-time</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {lastUpdated && (
-                <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] text-gray-400">
-                  <Clock className="h-3.5 w-3.5" />
-                  {lastUpdated.toLocaleTimeString("id-ID")}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-400">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                </span>
-                Live
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <StatCard label="Total Unit" value={stats.total} icon={Truck} />
-            <StatCard
-              label="ON"
-              value={stats.on}
-              icon={Truck}
-              valueTone="text-emerald-400"
-              iconTone="text-emerald-400"
-              iconBg="bg-emerald-500/10"
-            />
-            <StatCard
-              label="Passive"
-              value={stats.passive}
-              icon={Truck}
-              valueTone="text-amber-400"
-              iconTone="text-amber-400"
-              iconBg="bg-amber-500/10"
-            />
-            <StatCard
-              label="OFF"
-              value={stats.off}
-              icon={Truck}
-              valueTone="text-red-400"
-              iconTone="text-red-400"
-              iconBg="bg-red-500/10"
-            />
-          </div>
-        </div>
-      </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#343538] shadow-2xl">
         <div className="shrink-0 border-b border-white/5 px-4 py-4 lg:px-5">
@@ -369,7 +313,7 @@ export default function History() {
               </button>
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#74CD25] to-[#5FA81E] px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:shadow-[#74CD25]/30"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#74CD25] px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#68b920]"
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -437,7 +381,7 @@ export default function History() {
                         style={getStripedRowStyle(idx)}
                       >
                         <td className={`${analysisBodyCellClass} text-center`}>{startIndex + idx + 1}</td>
-                        <td className={`${analysisBodyCellClass} font-mono`}>{row.waktu || "-"}</td>
+                        <td className={`${analysisBodyCellClass} font-mono`}>{formatDateTime(row.waktu)}</td>
                         <td className={`${analysisBodyCellClass} font-medium text-white`}>{row.idAlat || "-"}</td>
                         <td className={analysisBodyCellClass}>{row.noPol || "-"}</td>
                         <td className={analysisBodyCellClass}>{row.jenisAlat || "-"}</td>
@@ -452,12 +396,12 @@ export default function History() {
                         <td className={`${analysisBodyCellClass} text-center`}><StatusBadge status={row.anomaliStatusFuel} /></td>
                         <td className={`${analysisBodyCellClass} text-center font-mono`}>{row.fuelMasuk || "-"}</td>
                         <td className={`${analysisBodyCellClass} text-center`}><StatusBadge status={row.statusAlat} /></td>
-                        <td className={`${analysisBodyCellClass} font-mono`}>{row.start || "-"}</td>
-                        <td className={`${analysisBodyCellClass} font-mono`}>{row.rentangWaktuAktif || "-"}</td>
+                        <td className={`${analysisBodyCellClass} font-mono`}>{extractClockTime(row.start) || "-"}</td>
+                        <td className={`${analysisBodyCellClass} font-mono`}>{formatTimeRange(row.rentangWaktuAktif)}</td>
                         <td className={analysisBodyCellClass}>{row.durasiAktif || "-"}</td>
-                        <td className={`${analysisBodyCellClass} font-mono`}>{row.rentangWaktuPassif || "-"}</td>
+                        <td className={`${analysisBodyCellClass} font-mono`}>{formatTimeRange(row.rentangWaktuPassif)}</td>
                         <td className={analysisBodyCellClass}>{row.durasiPassif || "-"}</td>
-                        <td className={`${analysisBodyCellClass} font-mono`}>{row.mati || "-"}</td>
+                        <td className={`${analysisBodyCellClass} font-mono`}>{extractClockTime(row.mati) || "-"}</td>
                         <td className={`${analysisBodyCellClass} text-white`}>{row.namaOperator || "-"}</td>
                         <td className={analysisBodyCellClass}>{row.idOperator || "-"}</td>
                         <td className={`${analysisBodyCellClass} text-center`}><TripStatusBadge status={row.statusTrip} /></td>

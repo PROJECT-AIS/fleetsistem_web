@@ -2,6 +2,22 @@
 @import "leaflet/dist/leaflet.css";
 @import "./styles/animations.css";
 
+:root {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #f4f5f7;
+  background-color: #1e1f22;
+  --bg-base: #1e1f22;
+  --bg-surface: #2b2c30;
+  --bg-surface-soft: #34353a;
+  --bg-surface-muted: #232428;
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text-primary: #f4f5f7;
+  --text-secondary: #9ca3af;
+  --accent: #74cd25;
+  --accent-soft: rgba(116, 205, 37, 0.14);
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -10,8 +26,8 @@ html, body {
   height: -webkit-fill-available;
   overflow: hidden !important;
   overscroll-behavior: none;
-  background-color: #1E1F22;
-  user-select: none;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
 }
 
 #root {
@@ -20,37 +36,51 @@ html, body {
   overflow: hidden;
 }
 
+body {
+  font-family: inherit;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
 /* ========== Custom Scrollbar Styles ========== */
 
-/* Universal beautiful scrollbar - Chrome, Safari, Edge */
+/* Universal scrollbar - Chrome, Safari, Edge */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1b1e;
-  border-radius: 10px;
+  background: #1f2023;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #5FA81E 0%, #74CD25 50%, #4A8516 100%);
-  border-radius: 10px;
-  border: 2px solid #1a1b1e;
+  background: rgba(116, 205, 37, 0.58);
+  border-radius: 999px;
+  border: 2px solid #1f2023;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #74CD25 0%, #8AE035 50%, #5FA81E 100%);
+  background: rgba(116, 205, 37, 0.82);
 }
 
 ::-webkit-scrollbar-corner {
-  background: #1a1b1e;
+  background: #1f2023;
 }
 
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #5FA81E #1a1b1e;
+  scrollbar-color: rgba(116, 205, 37, 0.58) #1f2023;
 }
 
 /* Hide scrollbar utility class */
@@ -76,4 +106,24 @@ html, body {
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(116, 205, 37, 0.8);
+}
+
+.status-blink {
+  animation: status-blink 1s ease-in-out infinite;
+}
+
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@keyframes status-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.26;
+  }
 }

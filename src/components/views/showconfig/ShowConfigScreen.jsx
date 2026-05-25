@@ -42,6 +42,24 @@ const ENTRY_ROUTE_BY_TAB = {
     kalibrasi: "/setup/sensor-calibration",
     users: "/setup/user-management",
 };
+const EQUIPMENT_STATUS_OPTIONS = [
+    { value: "Available", label: "Available" },
+    { value: "Maintenance", label: "Maintenance" },
+    { value: "Breakdown", label: "Breakdown" },
+];
+const getEquipmentStatusBadgeClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "available" || normalized === "aktif") {
+        return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+    }
+    if (normalized === "maintenance") {
+        return "bg-amber-500/15 text-amber-300 border border-amber-500/30";
+    }
+    if (normalized === "breakdown" || normalized === "non-aktif" || normalized === "non aktif") {
+        return "bg-red-500/15 text-red-300 border border-red-500/30";
+    }
+    return "bg-white/10 text-gray-300 border border-white/10";
+};
 
 // Toast notification
 const Toast = ({ message, type, onClose }) => {
@@ -245,8 +263,10 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
         kapasitasMuat: "", 
         kapasitasTangki: "", 
         tahunManufaktur: "", 
-        status: "Aktif" 
+        status: "Available",
+        gambar: null,
     });
+    const [previewImage, setPreviewImage] = useState("");
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -259,10 +279,20 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
                 kapasitasMuat: item.kapasitasMuat || "",
                 kapasitasTangki: item.kapasitasTangki || "",
                 tahunManufaktur: item.tahunManufaktur || "",
-                status: item.status || "Aktif",
+                status: item.status || "Available",
+                gambar: null,
             });
+            setPreviewImage(item.gambar ? resolveBackendUrl(item.gambar) : "");
         }
     }, [item]);
+
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setForm((prev) => ({ ...prev, gambar: file }));
+        setPreviewImage(URL.createObjectURL(file));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -305,11 +335,30 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
                         <FormInput label="Kapasitas Tangki BBM (Liter)" name="kapasitasTangki" value={form.kapasitasTangki} onChange={(e) => setForm({ ...form, kapasitasTangki: e.target.value })} type="number" />
                         <FormInput label="Tahun Manufaktur" name="tahunManufaktur" value={form.tahunManufaktur} onChange={(e) => setForm({ ...form, tahunManufaktur: e.target.value })} type="number" />
                         <FormSelect label="Status" name="status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-                            options={[
-                                { value: "Aktif", label: "Aktif" },
-                                { value: "Maintenance", label: "Maintenance" },
-                                { value: "Non-Aktif", label: "Non-Aktif" },
-                            ]} required />
+                            options={EQUIPMENT_STATUS_OPTIONS} required />
+                    </div>
+
+                    <div className="mt-5 flex flex-col gap-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Gambar Unit</label>
+                        <div className="flex items-center gap-4">
+                            {previewImage ? (
+                                <img src={previewImage} alt="Preview unit" className="h-24 w-32 rounded-2xl border border-white/10 object-cover" />
+                            ) : (
+                                <div className="flex h-24 w-32 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-[#26272b]">
+                                    <Truck className="h-8 w-8 text-gray-500" />
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#4a4b4d] px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-[#5a5b5d]">
+                                    <Upload className="h-4 w-4" />
+                                    Upload Gambar
+                                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                                </label>
+                                <p className="max-w-xs text-xs leading-5 text-gray-500">
+                                    Gambar akan tampil di dashboard saat equipment dipilih.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="mt-8 flex justify-end gap-3 border-t border-[#343538] pt-6">
@@ -398,20 +447,8 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                         <FormInput label="ID Operator" name="idOperator" value={form.idOperator} onChange={handleChange} required />
                         <FormInput label="Nama Operator" name="nama" value={form.nama} onChange={handleChange} required />
                         <FormInput label="No. Telepon" name="noTelp" value={form.noTelp} onChange={handleChange} required />
-                        <FormSelect label="Divisi" name="divisi" value={form.divisi} onChange={handleChange}
-                            options={[
-                                { value: "Operasional", label: "Operasional" },
-                                { value: "Logistik", label: "Logistik" },
-                                { value: "Maintenance", label: "Maintenance" },
-                                { value: "HSE", label: "HSE" },
-                            ]} required />
-                        <FormSelect label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange}
-                            options={[
-                                { value: "Driver", label: "Driver" },
-                                { value: "Operator", label: "Operator" },
-                                { value: "Supervisor", label: "Supervisor" },
-                                { value: "Mekanik", label: "Mekanik" },
-                            ]} required />
+                        <FormInput label="Divisi" name="divisi" value={form.divisi} onChange={handleChange} placeholder="Operasional / Maintenance / HSE" required />
+                        <FormInput label="Jabatan" name="jabatan" value={form.jabatan} onChange={handleChange} placeholder="Driver / Operator / Supervisor" required />
                         <FormInput label="Alamat" name="alamat" value={form.alamat} onChange={handleChange} />
                     </div>
 
@@ -844,13 +881,13 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
                 <table className={`${analysisTableClass} border-separate border-spacing-0`}>
                     <thead className={`${analysisTableHeadClass} sticky top-0 z-20`}>
                         <tr className={analysisHeaderRowClass}>
-                            <th className={`${analysisHeaderCellClass} text-left bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>No</th>
+                            <th className={`${analysisHeaderCellClass} text-left`}>No</th>
                             {columns.map((col) => (
-                                <th key={col.key} className={`${analysisHeaderCellClass} text-left bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>
+                                <th key={col.key} className={`${analysisHeaderCellClass} text-left`}>
                                     {col.label}
                                 </th>
                             ))}
-                            <th className={`${analysisHeaderCellClass} text-center bg-gradient-to-r from-[#4A8516] to-[#5FA81E]`}>Aksi</th>
+                            <th className={`${analysisHeaderCellClass} text-center`}>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className={analysisBodyClass}>
@@ -861,8 +898,7 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
                                     {columns.map((col) => (
                                         <td key={col.key} className={analysisBodyCellClass}>
                                             {col.key === "status" ? (
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${item[col.key] === "Aktif" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"
-                                                    }`}>
+                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-wide ${getEquipmentStatusBadgeClass(item[col.key])}`}>
                                                     {item[col.key]}
                                                 </span>
                                             ) : col.render ? col.render(item) : (
@@ -993,7 +1029,7 @@ export default function ShowConfigScreen({
     pageDescription = "Lihat dan kelola data konfigurasi yang sudah tersimpan.",
     visibleTabs = null,
 }) {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const tabs = visibleTabs?.length
         ? visibleTabs
             .map((id) => TABS.find((tab) => tab.id === id))
@@ -1084,6 +1120,12 @@ export default function ShowConfigScreen({
     };
 
     const showToast = (message, type = "success") => setToast({ message, type });
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set("tab", tabId);
+        setSearchParams(nextParams);
+    };
 
     const handleSaveCallback = (message, type = "success") => {
         showToast(message, type);
@@ -1191,7 +1233,7 @@ export default function ShowConfigScreen({
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
                                 return (
-                                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                    <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                                         className={`flex shrink-0 items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold transition-all duration-300 tracking-tight text-xs whitespace-nowrap
                 ${isActive ? "bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/40 scale-105" : "bg-transparent text-gray-400 hover:bg-[#343538] hover:text-white"}`}>
                                         <Icon className="w-4 h-4" />

@@ -8,14 +8,6 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-        }
-      }
-    }
-  },
   server: {
     host: true,
     allowedHosts: true,

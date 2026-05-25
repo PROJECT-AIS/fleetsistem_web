@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MessageSquare, X, Send, Headset, Loader2, FileSpreadsheet, Search, Truck, Trash2, ChevronDown as ChevronIcon } from "lucide-react";
-import mqtt from "mqtt";
-import * as XLSX from "xlsx";
 import { publishToTopic } from "../../utils/mqttActions";
 import { influxService } from "../../services/influxService";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
-const ChatOverlay = ({ isSidebarOpen }) => {
+const ChatOverlay = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [message, setMessage] = useState("");
@@ -42,22 +40,40 @@ const ChatOverlay = ({ isSidebarOpen }) => {
   }, [history]);
 
   useEffect(() => {
-    const client = mqtt.connect("wss://mqtt.aispektra.com:443");
-    client.on("connect", () => {
-      client.subscribe("fms/chat");
-      client.subscribe("fms/+/chat");
-    });
-    client.on("message", (topic, message) => {
+    let client;
+    let disposed = false;
+
+    const initClient = async () => {
       try {
-        const payload = JSON.parse(message.toString());
-        setHistory(prev => {
-          const isDuplicate = prev.some(m => m.timestamp === payload.timestamp && m.message === payload.message);
-          if (isDuplicate) return prev;
-          return [...prev, { ...payload, topic, isMine: payload.sender === "Web Admin" }];
+        const { default: mqtt } = await import("mqtt");
+        if (disposed) return;
+
+        client = mqtt.connect("wss://mqtt.aispektra.com:443");
+        client.on("connect", () => {
+          client.subscribe("fms/chat");
+          client.subscribe("fms/+/chat");
         });
-      } catch (e) { console.error("Failed to parse message", e); }
-    });
-    return () => client.end();
+        client.on("message", (topic, message) => {
+          try {
+            const payload = JSON.parse(message.toString());
+            setHistory(prev => {
+              const isDuplicate = prev.some(m => m.timestamp === payload.timestamp && m.message === payload.message);
+              if (isDuplicate) return prev;
+              return [...prev, { ...payload, topic, isMine: payload.sender === "Web Admin" }];
+            });
+          } catch (e) { console.error("Failed to parse message", e); }
+        });
+      } catch (error) {
+        console.error("Failed to initialize chat MQTT client", error);
+      }
+    };
+
+    initClient();
+
+    return () => {
+      disposed = true;
+      client?.end();
+    };
   }, []);
 
   // Fetch vehicle data for search
@@ -100,14 +116,14 @@ const ChatOverlay = ({ isSidebarOpen }) => {
     try {
       await publishToTopic(topic, payload);
       setMessage("");
-    } catch (error) {
+    } catch {
       alert("Gagal mengirim pesan");
     } finally {
       setIsSending(false);
     }
   };
 
-  const exportToExcel = (filterOptions = {}) => {
+  const exportToExcel = async (filterOptions = {}) => {
     let dataToExport = [...history];
 
     if (filterOptions.date) {
@@ -146,10 +162,16 @@ const ChatOverlay = ({ isSidebarOpen }) => {
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Chat History");
-    XLSX.writeFile(wb, `FMS_Chat_History_${new Date().toISOString().split('T')[0]}.xlsx`);
+    try {
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Chat History");
+      XLSX.writeFile(wb, `FMS_Chat_History_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+      console.error("Export chat history error:", error);
+      alert("Gagal export data chat.");
+    }
   };
 
   const filteredVehicles = vehicleData.filter(v => 
@@ -238,8 +260,8 @@ const ChatOverlay = ({ isSidebarOpen }) => {
                 ) : (
                   history.map((msg, i) => (
                     <div key={i} className={cn(
-                      "rounded-xl p-3 border border-white/5 transition-all hover:bg-white/5",
-                      msg.isMine ? "bg-white/5" : "bg-[#39ff14]/5"
+                      "rounded-xl border p-3 transition-all hover:bg-white/5",
+                      msg.isMine ? "border-white/5 bg-white/5" : "border-[#39ff14]/18 bg-[#39ff14]/10"
                     )}>
                       <div className="flex justify-between items-center mb-1">
                         <span className={cn("text-[9px] font-black uppercase", msg.isMine ? "text-gray-400" : "text-[#39ff14]")}>
@@ -247,7 +269,12 @@ const ChatOverlay = ({ isSidebarOpen }) => {
                         </span>
                         <span className="text-[8px] text-gray-500">{new Date(msg.timestamp).toLocaleTimeString()}</span>
                       </div>
-                      <p className="text-xs text-white/80 line-clamp-2 leading-relaxed">{msg.message}</p>
+                      <div className={cn(
+                        "mt-2 max-h-36 overflow-y-auto rounded-lg px-3 py-2 text-xs leading-relaxed custom-scrollbar break-anywhere whitespace-pre-wrap",
+                        msg.isMine ? "bg-white/4 text-white/85" : "bg-[#39ff14]/12 text-[#d9ffd0]"
+                      )}>
+                        {msg.message}
+                      </div>
                       {msg.target && (
                         <div className="mt-2 flex items-center gap-1">
                           <div className="h-1 w-1 rounded-full bg-[#39ff14]" />

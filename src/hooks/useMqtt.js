@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { normalizeDeviceStatus, normalizeEquipmentOperationalStatus } from '../utils/statusUtils';
 
 const MQTT_URL = 'wss://mqtt.aispektra.com:443';
 const DEFAULT_TOPIC = 'fms/+/data';
@@ -69,15 +70,31 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
         let operatorId = nfcUid || "-";
 
         if (nfcUid) {
-            const foundOp = operators.find(op => op.nfcUid === nfcUid);
+            const foundOp = operators.find(op => op.idCardNfc === nfcUid || op.nfcUid === nfcUid);
             if (foundOp) {
                 operatorName = foundOp.nama;
-                operatorId = foundOp.id;
+                operatorId = foundOp.idOperator || foundOp.id || nfcUid;
             }
         }
 
         // 3. Asset (Alat) Details Mapping
         const assetInfo = alat.find(a => a.idFms === vehicleId);
+        const lokasiAwal = data.operator_input?.lokasi_awal ?? data.lokasi_awal ?? data.loc_start ?? "-";
+        const lokasiAkhir = data.operator_input?.lokasi_akhir ?? data.lokasi_akhir ?? data.loc_end ?? "-";
+        const jenisMuatan = data.operator_input?.jenis_muatan ?? data.jenis_muatan ?? data.payload_type ?? "-";
+        const payloadVehicleStatus = normalizeDeviceStatus(data.vehicle?.status ?? data.status, '');
+        const deviceOnline = payloadVehicleStatus
+            ? payloadVehicleStatus === 'online'
+            : Boolean(data.vehicle?.engine_on || data.vehicle?.moving || speedKph > 0);
+        const resolvedVehicleStatus = payloadVehicleStatus || (deviceOnline ? 'online' : 'offline');
+        const payloadEquipmentStatus =
+            data.equipment?.status ??
+            data.equipment_status ??
+            data.status_alat ??
+            data.asset?.status;
+        const resolvedEquipmentStatus = normalizeEquipmentOperationalStatus(
+            payloadEquipmentStatus ?? assetInfo?.status ?? 'online'
+        );
 
         // 4. Retase (Trip) Logic
         const rawTripStatus = data.operator_input?.status_trip || data.status_trip || "End Trip";
@@ -147,11 +164,13 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                 [vehicleId]: {
                     ...data,
                     id: vehicleId,
-                    name: assetInfo?.noPlat || vehicleId,
+                    name: assetInfo?.noUnit || assetInfo?.noPlat || vehicleId,
                     lat,
                     lng,
                     gpsValid,
-                    status: (data.vehicle?.engine_on || data.vehicle?.moving || speedKph > 0) ? 'online' : 'offline',
+                    status: resolvedVehicleStatus,
+                    deviceStatus: gpsValid ? resolvedVehicleStatus : 'loss',
+                    equipmentStatus: resolvedEquipmentStatus,
                     image: assetInfo?.gambar ? assetInfo.gambar : "/assets/selected-vehicle.png",
                     fuelLevel: data.fuel?.percent || 0,
                     speed: speedKph,
@@ -160,7 +179,10 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                     fuelData: newFuelHistory,
                     operatorName,
                     operatorId,
-                    plateNumber: assetInfo?.noPlat || vehicleId,
+                    plateNumber: assetInfo?.noUnit || assetInfo?.noPlat || vehicleId,
+                    lokasiAwal,
+                    lokasiAkhir,
+                    jenisMuatan,
                     maxSpeedInTrip: newMaxSpeed,
                     lastTripStatus: currentTripStatus,
                     tripPath: newTripPath.slice(-500),

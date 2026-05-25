@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Download, Search, ChevronLeft, ChevronRight, Filter, RefreshCw, MapPin, Route, Clock, CheckCircle2 } from "lucide-react";
+import { Download, Search, ChevronLeft, ChevronRight, Filter, RefreshCw } from "lucide-react";
 import PageLayout from "../../layout/PageLayout";
 import api from "../../../services/api";
 import {
@@ -14,25 +14,6 @@ import {
   analysisRowClass,
   getStripedRowStyle,
 } from "../shared/tableStyles";
-
-const StatCard = ({
-  label,
-  value,
-  icon,
-  valueTone = "text-white",
-  iconTone = "text-[#74CD25]",
-  iconBg = "bg-[#74CD25]/10",
-}) => (
-  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5">
-    <div className="mb-1.5 flex items-center justify-between">
-      <span className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">{label}</span>
-      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}>
-        {icon ? React.createElement(icon, { className: `h-4 w-4 ${iconTone}` }) : null}
-      </span>
-    </div>
-    <p className={`text-3xl font-black leading-none ${valueTone}`}>{value}</p>
-  </div>
-);
 
 export default function DataTrip() {
   const [dataTrip, setDataTrip] = useState([]);
@@ -71,23 +52,6 @@ export default function DataTrip() {
     }, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
-
-  const stats = useMemo(() => {
-    const total = dataTrip.length;
-    const uniqueAlat = new Set(dataTrip.map((r) => r.idAlat).filter(Boolean)).size;
-    const uniqueOperator = new Set(dataTrip.map((r) => r.namaOperator).filter(Boolean)).size;
-    const todayStr = new Date().toLocaleDateString("id-ID");
-    const todayTrips = dataTrip.filter((r) => {
-      if (!r.tanggal) return false;
-      try {
-        const d = new Date(r.createdAt || r.tanggal);
-        return d.toLocaleDateString("id-ID") === todayStr;
-      } catch {
-        return false;
-      }
-    }).length;
-    return { total, uniqueAlat, uniqueOperator, todayTrips };
-  }, [dataTrip]);
 
   const toSearchText = (value) => String(value ?? "").toLowerCase();
   const toFilterText = (value) => String(value ?? "").trim();
@@ -167,55 +131,6 @@ export default function DataTrip() {
 
   return (
     <PageLayout noScroll={true} className="flex flex-col gap-4 p-4 lg:p-6">
-      <div
-        className="relative shrink-0 overflow-hidden rounded-3xl border border-[#74CD25]/15 bg-[#1a2a1a]"
-        style={{ background: "linear-gradient(135deg, #1a2a1a 0%, #112314 45%, #182818 100%)" }}
-      >
-        <div
-          className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full opacity-[0.14]"
-          style={{ background: "radial-gradient(circle, #74CD25 0%, transparent 70%)" }}
-        />
-        <div
-          className="pointer-events-none absolute -bottom-20 left-1/4 h-56 w-56 rounded-full opacity-[0.08]"
-          style={{ background: "radial-gradient(circle, #74CD25 0%, transparent 70%)" }}
-        />
-
-        <div className="relative px-5 pb-5 pt-5 lg:px-6 lg:pb-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white lg:text-[30px]">Data Trip</h1>
-              <p className="mt-1 text-sm tracking-wide text-gray-400">Rekap perjalanan unit yang sudah selesai</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {lastUpdated && (
-                <span className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] text-gray-400">
-                  <Clock className="h-3.5 w-3.5" />
-                  {lastUpdated.toLocaleTimeString("id-ID")}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#74CD25]/25 bg-[#74CD25]/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#74CD25]">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Completed
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <StatCard label="Total Trip" value={stats.total} icon={Route} />
-            <StatCard
-              label="Trip Hari Ini"
-              value={stats.todayTrips}
-              icon={Clock}
-              valueTone="text-[#74CD25]"
-              iconTone="text-[#74CD25]"
-              iconBg="bg-[#74CD25]/10"
-            />
-            <StatCard label="Unit Terdaftar" value={stats.uniqueAlat} icon={MapPin} />
-            <StatCard label="Operator" value={stats.uniqueOperator} icon={CheckCircle2} />
-          </div>
-        </div>
-      </div>
-
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#343538] shadow-2xl">
         <div className="shrink-0 border-b border-white/5 px-4 py-4 lg:px-5">
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[auto_minmax(320px,1fr)_auto] xl:items-center">
@@ -286,7 +201,7 @@ export default function DataTrip() {
               </button>
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#74CD25] to-[#5FA81E] px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg hover:shadow-[#74CD25]/30"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#74CD25] px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#68b920]"
               >
                 <Download className="h-4 w-4" />
                 Export

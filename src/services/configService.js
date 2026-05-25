@@ -1,11 +1,25 @@
 import api from './api';
 
+const buildFormData = (data = {}) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+            formData.append(key, value);
+        }
+    });
+    return formData;
+};
+
 // ===================== ALAT =====================
 export const alatService = {
     getAll: () => api.get('/alat'),
     getById: (id) => api.get(`/alat/${id}`),
-    create: (data) => api.post('/alat', data),
-    update: (id, data) => api.put(`/alat/${id}`, data),
+    create: (data) => api.post('/alat', buildFormData(data), {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    update: (id, data) => api.put(`/alat/${id}`, buildFormData(data), {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
     delete: (id) => api.delete(`/alat/${id}`)
 };
 

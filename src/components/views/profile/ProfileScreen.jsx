@@ -37,7 +37,7 @@ const Avatar = ({ src, name, size = "large", onClick, showCamera = false }) => {
           className="w-full h-full object-cover"
         />
       ) : (
-        <div className="w-full h-full bg-gradient-to-br from-[#74CD25] to-[#5fa01c] flex items-center justify-center text-white font-bold">
+        <div className="flex h-full w-full items-center justify-center bg-[#74CD25] font-bold text-white">
           {initials}
         </div>
       )}

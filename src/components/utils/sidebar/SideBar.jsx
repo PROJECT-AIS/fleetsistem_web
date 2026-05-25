@@ -1,5 +1,7 @@
 import {
   Activity,
+  BarChart3,
+  BellRing,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -10,9 +12,9 @@ import {
   LayoutDashboard,
   Settings2,
   SlidersHorizontal,
+  Table2,
   Users,
   Map,
-  PieChart,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -62,14 +64,28 @@ const NAV_ITEMS = [
       { path: '/data-trip', icon: Map, label: 'Data Trip' },
     ],
   },
-  { type: 'link', path: '/analysis', icon: Activity, label: 'Analysis' },
-  { type: 'link', path: '/statistics', icon: PieChart, label: 'Statistik & Chart' },
+  {
+    type: 'group',
+    id: 'analysis',
+    icon: Activity,
+    label: 'Analysis',
+    children: [
+      { path: '/analysis', search: '?view=chart', defaultActive: true, icon: BarChart3, label: 'Chart' },
+      { path: '/analysis', search: '?view=table', icon: Table2, label: 'Table' },
+    ],
+  },
+  { type: 'link', path: '/alerts', icon: BellRing, label: 'Alerts' },
 ]
 
 const isPathActive = (pathname, path) => pathname === path
-const isChildActive = (pathname, path) => pathname === path || pathname.startsWith(`${path}/`)
-const isNavChildActive = (pathname, child) =>
-  isChildActive(pathname, child.path) || child.matchPaths?.some((path) => isChildActive(pathname, path))
+const isChildPathActive = (pathname, path) => pathname === path || pathname.startsWith(`${path}/`)
+const buildNavTarget = (item) => `${item.path}${item.search || ''}`
+const isNavChildActive = (location, child) => {
+  if (child.matchPaths?.some((path) => isChildPathActive(location.pathname, path))) return true
+  if (!isChildPathActive(location.pathname, child.path)) return false
+  if (!child.search) return true
+  return location.search === child.search || (child.defaultActive && !location.search)
+}
 
 export default function SideBar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -82,9 +98,9 @@ export default function SideBar() {
   const activeGroups = useMemo(
     () =>
       NAV_ITEMS.filter((item) => item.type === 'group')
-        .filter((item) => item.children.some((child) => isNavChildActive(location.pathname, child)))
+        .filter((item) => item.children.some((child) => isNavChildActive(location, child)))
         .map((item) => item.id),
-    [location.pathname]
+    [location]
   )
 
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(activeGroups.map((id) => [id, true])))
@@ -108,18 +124,17 @@ export default function SideBar() {
   }
 
   return (
-    <div className="self-stretch min-h-0 flex flex-col px-3 py-6">
+    <div className="self-stretch min-h-0 flex flex-col px-3 py-5">
       <div
         className={`
-          bg-[#343538] rounded-2xl shadow-xl flex flex-col flex-1 min-h-0 overflow-hidden
+          flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-white/6 bg-[#343538] shadow-[0_24px_60px_rgba(0,0,0,0.22)]
           transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? 'w-72 px-4 py-5' : 'w-[76px] px-2 py-5 items-center'}
+          ${isSidebarOpen ? 'w-72 px-4 py-4' : 'w-[78px] px-2 py-4 items-center'}
         `}
       >
         <button
           className={`
-            p-2 rounded-xl bg-[#4A4B4D] text-gray-300 hover:bg-[#5A5B5D] hover:text-white
-            transition-all duration-200 mb-6
+            mb-5 h-10 w-10 rounded-xl bg-white/6 text-gray-300 transition-all duration-200 hover:bg-white/10 hover:text-white
             ${isSidebarOpen ? 'self-end' : 'self-center'}
           `}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -128,8 +143,8 @@ export default function SideBar() {
           {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
 
-        <div className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar ${isSidebarOpen ? 'pr-1' : 'w-full'}`}>
-          <nav className={`flex flex-col gap-3 ${isSidebarOpen ? '' : 'w-full items-center'}`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide ${isSidebarOpen ? 'pr-1' : 'w-full'}`}>
+          <nav className={`flex flex-col gap-2.5 ${isSidebarOpen ? '' : 'w-full items-center'}`}>
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon
 
@@ -140,21 +155,21 @@ export default function SideBar() {
                     key={item.path}
                     onClick={() => navigate(item.path)}
                     className={`
-                    flex items-center gap-3 rounded-xl font-semibold transition-all duration-200
-                    ${isSidebarOpen ? 'px-4 py-3' : 'h-14 w-14 justify-center'}
+                    flex items-center gap-3 rounded-2xl text-[15px] font-medium tracking-[0.01em] transition-all duration-200
+                    ${isSidebarOpen ? 'px-4 py-3.5' : 'h-12 w-12 justify-center'}
                     ${active
-                      ? 'bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/30'
-                      : 'bg-[#4A4B4D] text-gray-300 hover:bg-[#5A5B5D] hover:text-white'}
+                      ? 'bg-[#74CD25] text-white shadow-[0_16px_28px_rgba(116,205,37,0.22)]'
+                      : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white'}
                   `}
                     title={!isSidebarOpen ? item.label : undefined}
                   >
-                    <Icon className="w-6 h-6 flex-shrink-0" />
+                    <Icon className="h-5 w-5 flex-shrink-0" />
                     {isSidebarOpen && <span className="whitespace-nowrap">{item.label}</span>}
                   </button>
                 )
               }
 
-              const groupActive = item.children.some((child) => isNavChildActive(location.pathname, child))
+              const groupActive = item.children.some((child) => isNavChildActive(location, child))
 
               return (
                 <div
@@ -170,13 +185,13 @@ export default function SideBar() {
                       }
                     }}
                     className={`
-                    flex w-full items-center gap-3 rounded-xl px-3 py-3 font-semibold transition-all duration-200
-                    ${groupActive ? 'bg-[#74CD25] text-white shadow-lg shadow-[#74CD25]/20' : 'text-gray-300 hover:bg-[#4A4B4D] hover:text-white'}
-                    ${!isSidebarOpen ? 'mx-auto h-14 w-14 justify-center px-0' : ''}
+                    flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-[15px] font-medium tracking-[0.01em] transition-all duration-200
+                    ${groupActive ? 'bg-[#74CD25] text-white shadow-[0_14px_24px_rgba(116,205,37,0.18)]' : 'text-gray-300 hover:bg-white/[0.06] hover:text-white'}
+                    ${!isSidebarOpen ? 'mx-auto h-12 w-12 justify-center px-0' : ''}
                   `}
                     title={!isSidebarOpen ? item.label : undefined}
                   >
-                    <Icon className="w-6 h-6 flex-shrink-0" />
+                    <Icon className="h-5 w-5 flex-shrink-0" />
                     {isSidebarOpen && (
                       <>
                         <span className="flex-1 text-left">{item.label}</span>
@@ -191,17 +206,17 @@ export default function SideBar() {
                     <div className="mt-2 flex flex-col gap-2 pl-2">
                       {item.children.map((child) => {
                         const ChildIcon = child.icon
-                        const childActive = isNavChildActive(location.pathname, child)
+                        const childActive = isNavChildActive(location, child)
 
                         return (
                           <button
-                            key={child.path}
-                            onClick={() => navigate(child.path)}
+                            key={buildNavTarget(child)}
+                            onClick={() => navigate(buildNavTarget(child))}
                             className={`
-                            flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200
+                            flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium tracking-[0.01em] transition-all duration-200
                             ${childActive
                               ? 'bg-[#74CD25]/20 text-[#A6F268] border border-[#74CD25]/50'
-                              : 'text-gray-300 hover:bg-[#4A4B4D] hover:text-white border border-transparent'}
+                              : 'border border-transparent text-gray-300 hover:bg-white/[0.06] hover:text-white'}
                           `}
                           >
                             <ChildIcon className="h-4 w-4 flex-shrink-0" />
@@ -217,7 +232,7 @@ export default function SideBar() {
           </nav>
         </div>
 
-        <ChatOverlay isSidebarOpen={isSidebarOpen} />
+        <ChatOverlay />
       </div>
     </div>
   )
