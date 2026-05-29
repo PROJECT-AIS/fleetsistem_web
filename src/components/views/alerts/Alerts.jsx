@@ -13,12 +13,7 @@ const ALERT_TONE = {
   info: "border-sky-500/30 bg-sky-500/10 text-sky-100",
 };
 
-const SummaryCard = ({ label, value }) => (
-  <div className="rounded-2xl border border-white/8 bg-[#2b2d32] px-4 py-3 shadow-xl">
-    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-gray-500">{label}</div>
-    <div className="mt-2 text-3xl font-black leading-none text-white">{value}</div>
-  </div>
-);
+
 
 export default function Alerts() {
   const [registeredAlat, setRegisteredAlat] = useState([]);
@@ -118,45 +113,26 @@ export default function Alerts() {
     });
   }, [rawVehicles, registeredAlat]);
 
-  const summary = useMemo(() => {
-    const breakdown = registeredAlat.filter((item) => normalizeEquipmentDisplayStatus(rawVehicles[item.idFms]?.equipmentStatus || item.status || "online") === "Breakdown").length;
-    const maintenance = registeredAlat.filter((item) => normalizeEquipmentDisplayStatus(rawVehicles[item.idFms]?.equipmentStatus || item.status || "online") === "Maintenance").length;
-    const offline = alerts.filter((item) => item.title === "Device offline").length;
-    const total = alerts.length;
 
-    return { total, breakdown, maintenance, offline };
-  }, [alerts, rawVehicles, registeredAlat]);
 
   return (
     <PageLayout noScroll={true} className="p-6">
-      <div className="flex h-full min-h-0 flex-col gap-4">
-        <div className="rounded-3xl border border-white/8 bg-[#232428] p-5 shadow-2xl">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-white">Alerts</h1>
-              <p className="mt-1 max-w-3xl text-sm text-gray-400">
-                Halaman ini hanya menampilkan kejadian yang perlu tindakan cepat, bukan monitoring harian yang berulang.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => fetchAlat(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#4a4b4d] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#5a5b5d]"
-            >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-              Refresh
-            </button>
+      <div className="flex h-full min-h-0 flex-col rounded-3xl border border-white/8 bg-[#232428] shadow-2xl">
+        <div className="flex shrink-0 flex-col gap-4 border-b border-white/5 p-6 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-white">Alerts</h1>
           </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard label="Total Alert" value={summary.total} />
-            <SummaryCard label="Breakdown" value={summary.breakdown} />
-            <SummaryCard label="Maintenance" value={summary.maintenance} />
-            <SummaryCard label="Device Offline" value={summary.offline} />
-          </div>
+          <button
+            type="button"
+            onClick={() => fetchAlat(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#4a4b4d] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#5a5b5d]"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            Refresh
+          </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-3xl border border-white/8 bg-[#232428] p-4 shadow-2xl custom-scrollbar">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 custom-scrollbar">
           {alerts.length > 0 ? (
             <div className="grid gap-3">
               {alerts.map((alert) => {

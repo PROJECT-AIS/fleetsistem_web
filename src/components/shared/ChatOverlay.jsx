@@ -57,8 +57,21 @@ const ChatOverlay = () => {
           try {
             const payload = JSON.parse(message.toString());
             setHistory(prev => {
-              const isDuplicate = prev.some(m => m.timestamp === payload.timestamp && m.message === payload.message);
-              if (isDuplicate) return prev;
+              const existingIndex = prev.findIndex(m => 
+                (payload.id && m.id === payload.id) || 
+                (m.timestamp === payload.timestamp && m.message === payload.message)
+              );
+              
+              if (existingIndex !== -1) {
+                const existing = prev[existingIndex];
+                if (payload.status && payload.status !== existing.status) {
+                  const newHistory = [...prev];
+                  newHistory[existingIndex] = { ...existing, status: payload.status };
+                  return newHistory;
+                }
+                return prev;
+              }
+              
               return [...prev, { ...payload, topic, isMine: payload.sender === "Web Admin" }];
             });
           } catch (e) { console.error("Failed to parse message", e); }
@@ -106,6 +119,7 @@ const ChatOverlay = () => {
     setIsSending(true);
     const topic = activeTab === "broadcast" ? "fms/chat" : `fms/${selectedTarget.idFms || selectedTarget.id}/chat`;
     const payload = {
+      id: Date.now().toString(),
       message: message.trim(),
       sender: "Web Admin",
       timestamp: new Date().toISOString(),
@@ -153,7 +167,8 @@ const ChatOverlay = () => {
         Sender: m.sender,
         Type: typeLabel,
         Target: targetDisplay || "ALL",
-        Message: m.message
+        Message: m.message,
+        Status: m.status || "-"
       };
     });
 
@@ -279,6 +294,19 @@ const ChatOverlay = () => {
                         <div className="mt-2 flex items-center gap-1">
                           <div className="h-1 w-1 rounded-full bg-[#39ff14]" />
                           <span className="text-[8px] text-[#39ff14]/50 font-bold uppercase">To: {msg.target}</span>
+                          {msg.status && (
+                            <>
+                              <span className="text-[8px] text-[#39ff14]/50 font-bold uppercase mx-1">•</span>
+                              <span className={cn(
+                                "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
+                                msg.status.toLowerCase() === "accepted" || msg.status.toLowerCase() === "accept" ? "bg-[#39ff14]/20 text-[#39ff14]" :
+                                msg.status.toLowerCase() === "rejected" || msg.status.toLowerCase() === "reject" ? "bg-red-500/20 text-red-400" :
+                                "bg-white/10 text-white/50"
+                              )}>
+                                {msg.status}
+                              </span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

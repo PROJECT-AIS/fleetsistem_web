@@ -49,10 +49,7 @@ import { shiftCodeService } from "../../../services/configService";
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 const numberFormatter = new Intl.NumberFormat("id-ID");
 
-const SCOPE_OPTIONS = [
-  { value: "all", label: "All Unit" },
-  { value: "unit", label: "Spesifik Unit" },
-];
+
 
 const MATERIAL_COLORS = ["#78d72b", "#35b8ff", "#7b7cff", "#eb67b1", "#f59e0b", "#14b8a6"];
 
@@ -264,6 +261,18 @@ const isWithinRange = (timestamp, start, end) => Boolean(timestamp && timestamp 
 const getDashboardPeriodRange = (period) => {
   const now = new Date();
 
+  if (period === "yearly") {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear() + 1, 0, 1);
+    return { start, end };
+  }
+
+  if (period === "monthly") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return { start, end };
+  }
+
   if (period === "weekly") {
     const start = startOfWeek(now);
     const end = new Date(start);
@@ -288,6 +297,32 @@ const getDashboardPeriodRange = (period) => {
 
 const buildDashboardBuckets = (period) => {
   const now = new Date();
+
+  if (period === "yearly") {
+    return Array.from({ length: 12 }, (_, index) => {
+      const bucketStart = new Date(now.getFullYear(), index, 1);
+      const bucketEnd = new Date(now.getFullYear(), index + 1, 1);
+      return {
+        label: bucketStart.toLocaleDateString("id-ID", { month: "short" }),
+        start: bucketStart,
+        end: bucketEnd,
+      };
+    });
+  }
+
+  if (period === "monthly") {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const bucketStart = new Date(now.getFullYear(), now.getMonth(), index + 1);
+      const bucketEnd = new Date(bucketStart);
+      bucketEnd.setDate(bucketStart.getDate() + 1);
+      return {
+        label: String(index + 1),
+        start: bucketStart,
+        end: bucketEnd,
+      };
+    });
+  }
 
   if (period === "weekly") {
     const start = startOfWeek(now);
@@ -431,7 +466,7 @@ const ChartEmptyState = ({ label }) => (
 
 export default function Analysis() {
   const [searchParams] = useSearchParams();
-  const [scope, setScope] = useState("all");
+  const [dashboardPeriod, setDashboardPeriod] = useState("daily");
   const [selectedUnit, setSelectedUnit] = useState("all");
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -555,19 +590,14 @@ export default function Analysis() {
   );
 
   useEffect(() => {
-    if (scope === "unit" && selectedUnit === "all" && unitOptions.length > 0) {
-      setSelectedUnit(unitOptions[0]);
-      return;
-    }
-
     if (selectedUnit !== "all" && unitOptions.length > 0 && !unitOptions.includes(selectedUnit)) {
-      setSelectedUnit(scope === "unit" ? unitOptions[0] : "all");
+      setSelectedUnit("all");
     }
-  }, [scope, selectedUnit, unitOptions]);
+  }, [selectedUnit, unitOptions]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [viewMode, scope, selectedUnit, selectedOperator, dateFrom, dateTo]);
+  }, [viewMode, dashboardPeriod, selectedUnit, selectedOperator, dateFrom, dateTo]);
 
   const fromBoundary = useMemo(
     () => (dateFrom ? new Date(`${dateFrom}T00:00:00`) : null),
@@ -580,12 +610,7 @@ export default function Analysis() {
   );
 
   const matchesFilters = useCallback((row) => {
-    const matchesUnit =
-      scope === "unit"
-        ? row.unit === selectedUnit
-        : selectedUnit === "all"
-          ? true
-          : row.unit === selectedUnit;
+    const matchesUnit = selectedUnit === "all" ? true : row.unit === selectedUnit;
 
     const matchesOperator = selectedOperator === "all" ? true : row.operator === selectedOperator;
     const rowDate = row.timestamp;
@@ -593,7 +618,7 @@ export default function Analysis() {
     const toMatch = toBoundary ? (rowDate ? rowDate <= toBoundary : false) : true;
 
     return matchesUnit && matchesOperator && fromMatch && toMatch;
-  }, [fromBoundary, scope, selectedOperator, selectedUnit, toBoundary]);
+  }, [fromBoundary, selectedOperator, selectedUnit, toBoundary]);
 
   const filteredTripRows = useMemo(
     () => tripRows.filter(matchesFilters),
@@ -610,9 +635,8 @@ export default function Analysis() {
     [historyRows, matchesFilters]
   );
 
-  const dashboardPeriod = "realtime";
-  const dashboardRange = useMemo(() => getDashboardPeriodRange(dashboardPeriod), []);
-  const dashboardBuckets = useMemo(() => buildDashboardBuckets(dashboardPeriod), []);
+  const dashboardRange = useMemo(() => getDashboardPeriodRange(dashboardPeriod), [dashboardPeriod]);
+  const dashboardBuckets = useMemo(() => buildDashboardBuckets(dashboardPeriod), [dashboardPeriod]);
 
   const dashboardTripRows = useMemo(
     () => filteredTripRows.filter((row) => isWithinRange(row.timestamp, dashboardRange.start, dashboardRange.end)),
@@ -637,7 +661,7 @@ export default function Analysis() {
         eyebrow: "Total Produksi",
         value: formatNumber(totalProduction),
         description: "Accumulated material movement",
-        note: "Window realtime",
+        note: `Window ${dashboardPeriod}`,
         icon: Layers,
         accent: "green",
       },
@@ -666,7 +690,7 @@ export default function Analysis() {
         accent: "pink",
       },
     ];
-  }, [dashboardLogRows, dashboardTripRows]);
+  }, [dashboardLogRows, dashboardTripRows, dashboardPeriod]);
 
   const dashboardSeries = useMemo(() => {
     return dashboardBuckets.map((bucket) => {
@@ -909,7 +933,7 @@ export default function Analysis() {
     ? "Ringkasan performa fleet, tren fuel, aktivitas unit, dan distribusi material."
     : "Mode tabel menampilkan detail trip berdasarkan filter unit, operator, dan rentang tanggal.";
 
-  const dashboardScopeLabel = scope === "unit" && selectedUnit !== "all"
+  const dashboardScopeLabel = selectedUnit !== "all"
     ? `Unit ${selectedUnit}`
     : "Seluruh unit";
 
@@ -947,18 +971,14 @@ export default function Analysis() {
 
             <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-5">
               <select
-                value={scope}
-                onChange={(event) => {
-                  setScope(event.target.value);
-                  if (event.target.value === "all") {
-                    setSelectedUnit("all");
-                  }
-                }}
+                value={dashboardPeriod}
+                onChange={(event) => setDashboardPeriod(event.target.value)}
                 className="rounded-[16px] border border-white/8 bg-[#2a2d32] px-4 py-2.5 text-sm font-semibold text-white outline-none transition-all focus:border-[#8BFF2A]/40"
               >
-                {SCOPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
+                <option value="daily">Harian</option>
+                <option value="weekly">Mingguan</option>
+                <option value="monthly">Bulanan</option>
+                <option value="yearly">Tahunan</option>
               </select>
 
               <select
@@ -967,9 +987,11 @@ export default function Analysis() {
                 className="rounded-[16px] border border-white/8 bg-[#2a2d32] px-4 py-2.5 text-sm font-semibold text-white outline-none transition-all focus:border-[#8BFF2A]/40"
               >
                 <option value="all">Semua Unit</option>
-                {unitOptions.map((unit) => (
-                  <option key={unit} value={unit}>{unit}</option>
-                ))}
+                <optgroup label="Spesifik Unit">
+                  {unitOptions.map((unit) => (
+                    <option key={unit} value={unit}>{unit}</option>
+                  ))}
+                </optgroup>
               </select>
 
               <select
@@ -978,9 +1000,11 @@ export default function Analysis() {
                 className="rounded-[16px] border border-white/8 bg-[#2a2d32] px-4 py-2.5 text-sm font-semibold text-white outline-none transition-all focus:border-[#8BFF2A]/40"
               >
                 <option value="all">Semua Operator</option>
-                {operatorOptions.map((operator) => (
-                  <option key={operator} value={operator}>{operator}</option>
-                ))}
+                <optgroup label="Spesifik Operator">
+                  {operatorOptions.map((operator) => (
+                    <option key={operator} value={operator}>{operator}</option>
+                  ))}
+                </optgroup>
               </select>
 
               <div className="relative">

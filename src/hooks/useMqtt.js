@@ -82,12 +82,13 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
         const lokasiAwal = data.operator_input?.lokasi_awal ?? data.lokasi_awal ?? data.loc_start ?? "-";
         const lokasiAkhir = data.operator_input?.lokasi_akhir ?? data.lokasi_akhir ?? data.loc_end ?? "-";
         const jenisMuatan = data.operator_input?.jenis_muatan ?? data.jenis_muatan ?? data.payload_type ?? "-";
-        const payloadVehicleStatus = normalizeDeviceStatus(data.vehicle?.status ?? data.status, '');
-        const deviceOnline = payloadVehicleStatus
-            ? payloadVehicleStatus === 'online'
+        const payloadDeviceStatus = normalizeDeviceStatus(data.device_fms?.device_status ?? data.status, '');
+        const deviceOnline = payloadDeviceStatus
+            ? payloadDeviceStatus === 'online'
             : Boolean(data.vehicle?.engine_on || data.vehicle?.moving || speedKph > 0);
-        const resolvedVehicleStatus = payloadVehicleStatus || (deviceOnline ? 'online' : 'offline');
+        const resolvedDeviceStatus = payloadDeviceStatus || (deviceOnline ? 'online' : 'offline');
         const payloadEquipmentStatus =
+            data.vehicle?.status ??
             data.equipment?.status ??
             data.equipment_status ??
             data.status_alat ??
@@ -110,7 +111,8 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                 fuelHistory: [],
                 maxSpeedInTrip: 0,
                 lastTripStatus: 'End Trip',
-                tripPath: []
+                tripPath: [],
+                tripStartTime: null
             };
 
             // Track max speed during "On Trip"
@@ -130,6 +132,8 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                 }
             }
 
+            let newTripStartTime = existing.tripStartTime;
+
             // Detect Trip Completion (On Trip -> End Trip)
             if (existing.lastTripStatus === "On Trip" && normalizedTripStatus === "end_trip") {
                 if (DEBUG_MQTT) console.log(`[useMqtt] RETASE transition detected for ${vehicleId}.`);
@@ -140,11 +144,16 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                 // Note: We don't clear newTripPath immediately here so user can see the last route
                 // Reset max speed for next trip
                 newMaxSpeed = 0;
+                newTripStartTime = null;
             }
 
-            // If starting a NEW trip, clear the old path
-            if (existing.lastTripStatus === "End Trip" && normalizedTripStatus === "on_trip") {
+            // If starting a NEW trip from any other state, clear the old path and set new start time
+            if (existing.lastTripStatus !== "On Trip" && normalizedTripStatus === "on_trip") {
                 newTripPath = [{ lat, lng }];
+                newTripStartTime = Date.now();
+            } else if (normalizedTripStatus === "on_trip" && !newTripStartTime) {
+                // Fallback: if already on_trip but no start time, initialize it
+                newTripStartTime = Date.now();
             }
 
             // Fuel history update
@@ -168,8 +177,8 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                     lat,
                     lng,
                     gpsValid,
-                    status: resolvedVehicleStatus,
-                    deviceStatus: gpsValid ? resolvedVehicleStatus : 'loss',
+                    status: resolvedDeviceStatus,
+                    deviceStatus: gpsValid ? resolvedDeviceStatus : 'loss',
                     equipmentStatus: resolvedEquipmentStatus,
                     image: assetInfo?.gambar ? assetInfo.gambar : "/assets/selected-vehicle.png",
                     fuelLevel: data.fuel?.percent || 0,
@@ -186,7 +195,9 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                     maxSpeedInTrip: newMaxSpeed,
                     lastTripStatus: currentTripStatus,
                     tripPath: newTripPath.slice(-500),
+                    tripStartTime: newTripStartTime,
                     tripCount: existing.tripCount || 0,
+                    geofenceName: data.geofence?.name || "-",
                     metadata: assetInfo || {}
                 }
             };

@@ -13,6 +13,8 @@ import {
   UserRound,
   WifiOff,
   X,
+  Route,
+  Map,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import PageLayout from "../../layout/PageLayout";
@@ -349,6 +351,50 @@ const BottomChartCard = React.memo(({ title, subtitle, data, xKey, hasAnimated }
   </div>
 ));
 
+const TripRow = React.memo(({ trip }) => {
+  const [liveDuration, setLiveDuration] = useState(() => {
+    if (trip.isLive && trip.startTime) {
+      const diffSecs = Math.max(0, Math.floor((Date.now() - trip.startTime) / 1000));
+      const hours = String(Math.floor(diffSecs / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((diffSecs % 3600) / 60)).padStart(2, '0');
+      const seconds = String(diffSecs % 60).padStart(2, '0');
+      return `Durasi ${hours}:${minutes}:${seconds}`;
+    }
+    return "";
+  });
+
+  useEffect(() => {
+    if (trip.isLive && trip.startTime) {
+      const updateDuration = () => {
+        const diffSecs = Math.max(0, Math.floor((Date.now() - trip.startTime) / 1000));
+        const hours = String(Math.floor(diffSecs / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((diffSecs % 3600) / 60)).padStart(2, '0');
+        const seconds = String(diffSecs % 60).padStart(2, '0');
+        setLiveDuration(`Durasi ${hours}:${minutes}:${seconds}`);
+      };
+      
+      updateDuration();
+      const interval = setInterval(updateDuration, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [trip.isLive, trip.startTime]);
+
+  const durationText = trip.isLive ? liveDuration : trip.duration;
+
+  return (
+    <div className="flex items-start gap-2.5">
+      <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#8CFF2A]" />
+      <div className="min-w-0 flex-1">
+        <div className={cn("truncate text-xs text-white", contentValueClass)}>
+          {trip.route} {trip.isLive && <span className="ml-1 text-[10px] font-semibold text-[#74CD25]">(Live)</span>}
+        </div>
+        <div className={cn("mt-0.5 text-white/65", helperTextClass)}>{durationText || "Durasi -"}</div>
+        <div className={cn("mt-0.5 text-white/45", subtleTextClass)}>{trip.time}</div>
+      </div>
+    </div>
+  );
+});
+
 const TripInfoCard = React.memo(({ tripHistory }) => (
   <div className={bottomCardShellClass} onWheel={(event) => event.stopPropagation()}>
     <div className={bottomCardHeaderClass}>
@@ -360,14 +406,7 @@ const TripInfoCard = React.memo(({ tripHistory }) => (
     >
       {tripHistory.length > 0 ? (
         tripHistory.map((trip) => (
-          <div key={trip.id} className="flex items-start gap-2.5">
-            <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#8CFF2A]" />
-            <div className="min-w-0 flex-1">
-              <div className={cn("truncate text-xs text-white", contentValueClass)}>{trip.route}</div>
-              <div className={cn("mt-0.5 text-white/65", helperTextClass)}>{trip.duration}</div>
-              <div className={cn("mt-0.5 text-white/45", subtleTextClass)}>{trip.time}</div>
-            </div>
-          </div>
+          <TripRow key={trip.id} trip={trip} />
         ))
       ) : (
         <div className="flex h-full items-center justify-center text-xs font-semibold text-white/30">
@@ -491,7 +530,7 @@ const VehicleInfoCard = React.memo(
           <div
             className={cn(
               "overflow-hidden transition-all duration-300",
-              isExpanded ? "max-h-[320px] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0"
+              isExpanded ? "max-h-[450px] pt-4 opacity-100" : "max-h-0 pt-0 opacity-0"
             )}
           >
             <DetailRow label="ID Alat" value={vehicle.idFms || `FMS-${vehicle.id}`} icon={Truck} />
@@ -499,6 +538,11 @@ const VehicleInfoCard = React.memo(
             <DetailRow label="Nomor Unit" value={vehicle.unitNumber || vehicle.plateNumber || "-"} icon={Truck} />
             <DetailRow label="ID Operator" value={vehicle.operatorId || "-"} icon={UserRound} />
             <DetailRow label="Status Trip" value={tripStatus} icon={MapPin} />
+            <DetailRow 
+              label="Geofence" 
+              value={vehicle.lastTripStatus === "On Trip" ? `${vehicle.lokasiAwal || "-"} - ${vehicle.lokasiAkhir || "-"}` : (vehicle.geofenceName || "-")} 
+              icon={Map} 
+            />
           </div>
         </div>
       </div>
@@ -627,6 +671,19 @@ const HomeScreen = () => {
         const mqttVehicle = rawVehicles[v.id];
         const useLiveGps = mqttVehicle?.gpsValid === true;
 
+        let mappedLokasiAwal = mqttVehicle?.lokasiAwal || "-";
+        
+        if ((mqttVehicle?.statusTrip === "On Trip" || v.statusTrip === "On Trip") && v.id) {
+            if (mqttVehicle?.lastCompletedTripLocation && mqttVehicle.lastCompletedTripLocation !== "-") {
+                mappedLokasiAwal = mqttVehicle.lastCompletedTripLocation;
+            } else {
+                const previousTrip = tripEntries.find(t => t.idAlat === v.id);
+                if (previousTrip && previousTrip.lokasiFinish && previousTrip.lokasiFinish !== "-") {
+                    mappedLokasiAwal = previousTrip.lokasiFinish;
+                }
+            }
+        }
+
         return {
           ...v,
           lat: useLiveGps ? mqttVehicle.lat : v.lat,
@@ -644,7 +701,8 @@ const HomeScreen = () => {
           operatorId: mqttVehicle?.operatorId || v.operatorId || "-",
           distance: mqttVehicle?.distance ?? mqttVehicle?.tripDistance ?? mqttVehicle?.distanceKm ?? v.distance ?? v.tripDistance ?? v.distanceKm ?? "-",
           fuelCapacity: registration?.kapasitasTangki ?? mqttVehicle?.fuelCapacity ?? mqttVehicle?.kapasitasTangki ?? v.fuelCapacity ?? v.kapasitasTangki ?? "-",
-          lokasiAwal: mqttVehicle?.lokasiAwal || "-",
+          tripStartTime: mqttVehicle?.tripStartTime ?? v.tripStartTime ?? null,
+          lokasiAwal: mappedLokasiAwal,
           lokasiAkhir: mqttVehicle?.lokasiAkhir || "-",
           jenisMuatan: mqttVehicle?.jenisMuatan || "-",
           image: registration?.gambar ? resolveBackendUrl(registration.gambar) : '/assets/selected-vehicle.png',
@@ -727,6 +785,23 @@ const HomeScreen = () => {
       || vehicleData.find((v) => v.id === selectedVehicle.id)
       || selectedVehicle;
   }, [selectedVehicle, filteredVehicleData, vehicleData]);
+
+  const displayTripHistory = useMemo(() => {
+    if (!currentVehicle) return [];
+    const history = [...realTripHistory];
+    
+    if (currentVehicle.lastTripStatus === "On Trip") {
+      history.unshift({
+        id: "live-trip-" + currentVehicle.id + "-" + currentVehicle.tripStartTime,
+        route: `${currentVehicle.lokasiAwal || "-"} - ${currentVehicle.lokasiAkhir || "-"}`,
+        isLive: true,
+        startTime: currentVehicle.tripStartTime,
+        time: "Sedang Berlangsung"
+      });
+    }
+    
+    return history.slice(0, 4);
+  }, [realTripHistory, currentVehicle]);
 
   const handleVehicleClick = useCallback((vehicle) => {
     setSelectedVehicle((prev) => {
@@ -942,7 +1017,7 @@ const HomeScreen = () => {
                   xKey="day"
                   hasAnimated={hasAnimated}
                 />
-                <TripInfoCard tripHistory={realTripHistory} />
+                <TripInfoCard tripHistory={displayTripHistory} />
               </div>
             </div>
           ) : null}
