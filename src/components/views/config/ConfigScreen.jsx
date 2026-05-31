@@ -65,13 +65,19 @@ const Toast = ({ message, type, onClose }) => {
     }, [onClose]);
 
     return (
-        <div className={`fixed top-4 right-4 z-[9999] px-6 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in border ${
-            type === "success" 
-                ? "bg-[#74CD25]/10 border-[#74CD25]/30 text-[#74CD25]" 
-                : "bg-red-500/10 border-red-500/30 text-red-400"
-            } backdrop-blur-md`}>
-            {type === "success" ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
-            <span className="font-bold text-sm tracking-wide uppercase">{message}</span>
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-in zoom-in-95 fade-in duration-300">
+            <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border backdrop-blur-xl ${
+                type === "success" 
+                    ? "bg-[#74CD25]/10 border-[#74CD25]/20 text-[#74CD25] shadow-[0_0_40px_rgba(116,205,37,0.15)]" 
+                    : "bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_0_40px_rgba(239,68,68,0.15)]"
+                }`}>
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
+                    type === "success" ? "border-[#74CD25]/30 bg-[#74CD25]/20" : "border-red-500/30 bg-red-500/20"
+                }`}>
+                    {type === "success" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                </div>
+                <span className="font-bold text-sm tracking-widest uppercase">{message}</span>
+            </div>
         </div>
     );
 };

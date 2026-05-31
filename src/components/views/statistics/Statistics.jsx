@@ -475,38 +475,7 @@ export default function Statistics() {
         </div>
       </div>
 
-      <div className="grid shrink-0 auto-rows-fr gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard
-          icon={Layers}
-          label="Total Produksi"
-          value={formatNumber(totals.totalProduction)}
-          sublabel="Accumulated Material"
-          accent="bg-[#74CD25]/10 text-[#74CD25]"
-          trend="+12%"
-        />
-        <SummaryCard
-          icon={Droplets}
-          label="Rata-rata BBM"
-          value={`${formatNumber(totals.totalFuel)} L`}
-          sublabel="Rata-rata Penggunaan BBM"
-          accent="bg-[#38BDF8]/10 text-[#38BDF8]"
-        />
-        <SummaryCard
-          icon={Truck}
-          label="Active Fleet"
-          value={formatNumber(totals.maxOperating)}
-          sublabel="Units in Operation"
-          accent="bg-[#818CF8]/10 text-[#818CF8]"
-        />
-        <SummaryCard
-          icon={Route}
-          label="Trip Aggregation"
-          value={formatNumber(totals.totalTrip)}
-          sublabel="Total Payload Trips"
-          accent="bg-[#F472B6]/10 text-[#F472B6]"
-          trend="+5%"
-        />
-      </div>
+
 
       <div className="grid flex-1 min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
         {/* Top Row: Primary Graphics */}
@@ -540,6 +509,7 @@ export default function Statistics() {
                   tickLine={false}
                   interval="preserveStartEnd"
                   minTickGap={20}
+                  padding={{ left: 20, right: 20 }}
                 />
                 <YAxis 
                   tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
@@ -572,7 +542,7 @@ export default function Statistics() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="label" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                 <YAxis tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Line 
@@ -602,6 +572,7 @@ export default function Statistics() {
                   axisLine={false} 
                   tickLine={false}
                   interval="preserveStartEnd"
+                  padding={{ left: 20, right: 20 }}
                 />
                 <YAxis 
                   tick={{ fill: "#666", fontSize: 8, fontWeight: 900 }} 
@@ -623,7 +594,7 @@ export default function Statistics() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={locationBasedMaterialData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="name" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                 <YAxis tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]} isAnimationActive={false}>

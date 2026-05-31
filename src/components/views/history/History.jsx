@@ -23,16 +23,26 @@ const StatusBadge = ({ status }) => {
   if (!status || status === "-") return <span className="text-gray-500">-</span>;
   const s = status.toLowerCase();
   let color = "bg-gray-500/20 text-gray-400 border-gray-500/30";
+  let displayStatus = status;
 
-  if (s === "aktif" || s === "start" || s === "terbuka") color = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-  if (s === "idle") color = "bg-amber-500/20 text-amber-400 border-amber-500/30";
-  if (s === "passif" || s === "pasif" || s === "mati" || s === "tertutup" || s === "ya") color = "bg-red-500/20 text-red-400 border-red-500/30";
-  if (s.includes("anomali")) color = "bg-red-500/20 text-red-400 border-red-500/30";
-  if (s === "normal") color = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+  if (s === "aktif" || s === "start" || s === "terbuka" || s === "on" || s === "working") {
+    color = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+    if (s === "aktif" || s === "on") displayStatus = "Working";
+  } else if (s === "idle" || s === "passif" || s === "pasif" || s === "idling") {
+    color = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    if (s === "passif" || s === "pasif") displayStatus = "Idling";
+  } else if (s === "mati" || s === "tertutup" || s === "off" || s === "parked" || s === "ya") {
+    color = "bg-red-500/20 text-red-400 border-red-500/30";
+    if (s === "mati" || s === "off") displayStatus = "Parked";
+  } else if (s.includes("anomali")) {
+    color = "bg-red-500/20 text-red-400 border-red-500/30";
+  } else if (s === "normal") {
+    color = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+  }
 
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-black uppercase ${color}`}>
-      {status}
+      {displayStatus}
     </span>
   );
 };
@@ -341,7 +351,8 @@ export default function History() {
                     <th colSpan="3" className={analysisGroupedHeaderCellClass}>DATA GPS</th>
                     <th rowSpan="2" className={`${analysisHeaderCellClass} min-w-[130px] whitespace-nowrap text-left`}>JENIS MUATAN</th>
                     <th colSpan="4" className={analysisGroupedHeaderCellClass}>DATA SENSOR FUEL</th>
-                    <th colSpan="7" className={analysisGroupedHeaderCellClass}>STATUS ALAT</th>
+                    <th rowSpan="2" className={`${analysisHeaderCellClass} min-w-[120px] whitespace-nowrap text-center`}>STATUS ALAT</th>
+                    <th colSpan="6" className={analysisGroupedHeaderCellClass}>DETAIL STATUS ALAT</th>
                     <th rowSpan="2" className={`${analysisHeaderCellClass} min-w-[160px] whitespace-nowrap text-left`}>NAMA OPERATOR</th>
                     <th rowSpan="2" className={`${analysisHeaderCellClass} min-w-[150px] whitespace-nowrap text-left`}>ID OPERATOR</th>
                     <th rowSpan="2" className={`${analysisHeaderCellClass} min-w-[120px] whitespace-nowrap text-center`}>STATUS TRIP</th>
@@ -354,7 +365,6 @@ export default function History() {
                     <th className={`${analysisSubHeaderCellClass} min-w-[90px] whitespace-nowrap text-center`}>KONSUMSI FUEL</th>
                     <th className={`${analysisSubHeaderCellClass} min-w-[130px] whitespace-nowrap text-center`}>ANOMALI STATUS FUEL</th>
                     <th className={`${analysisSubHeaderCellClass} min-w-[90px] whitespace-nowrap text-center`}>FUEL MASUK</th>
-                    <th className={`${analysisSubHeaderCellClass} min-w-[100px] whitespace-nowrap text-center`}>STATUS ALAT</th>
                     <th className={`${analysisSubHeaderCellClass} min-w-[120px] whitespace-nowrap text-center`}>START</th>
                     <th className={`${analysisSubHeaderCellClass} min-w-[130px] whitespace-nowrap text-center`}>RENTANG WAKTU AKTIF</th>
                     <th className={`${analysisSubHeaderCellClass} min-w-[95px] whitespace-nowrap text-center`}>DURASI AKTIF</th>

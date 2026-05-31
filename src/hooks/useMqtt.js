@@ -93,9 +93,18 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
             data.equipment_status ??
             data.status_alat ??
             data.asset?.status;
-        const resolvedEquipmentStatus = normalizeEquipmentOperationalStatus(
+        let resolvedEquipmentStatus = normalizeEquipmentOperationalStatus(
             payloadEquipmentStatus ?? assetInfo?.status ?? 'online'
         );
+
+        // Dynamically infer Idling (pasif) or Working (online) based on speed
+        if (resolvedEquipmentStatus !== 'offline') {
+            if (speedKph === 0) {
+                resolvedEquipmentStatus = 'pasif';
+            } else {
+                resolvedEquipmentStatus = 'online';
+            }
+        }
 
         // 4. Retase (Trip) Logic
         const rawTripStatus = data.operator_input?.status_trip || data.status_trip || "End Trip";
@@ -168,9 +177,23 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
 
             const newHistory = [...(existing.history || []), { lat, lng, time: displayTime }].slice(-100);
 
+            // Stolen fuel tracking
+            let newLastStolenL = existing.lastStolenL || 0;
+            let newStolenActiveUntil = existing.stolenActiveUntil || 0;
+            if (data.fuel && data.fuel.stolen_l !== undefined) {
+                const currentStolen = Number(data.fuel.stolen_l);
+                if (currentStolen > newLastStolenL) {
+                    newStolenActiveUntil = Date.now() + 15000; // Keep active for 15 seconds after movement
+                    newLastStolenL = currentStolen;
+                } else if (currentStolen < newLastStolenL) {
+                    newLastStolenL = currentStolen; // reset
+                }
+            }
+
             return {
                 ...prev,
                 [vehicleId]: {
+                    ...existing,
                     ...data,
                     id: vehicleId,
                     name: assetInfo?.noUnit || assetInfo?.noPlat || vehicleId,
@@ -198,7 +221,9 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                     tripStartTime: newTripStartTime,
                     tripCount: existing.tripCount || 0,
                     geofenceName: data.geofence?.name || "-",
-                    metadata: assetInfo || {}
+                    metadata: assetInfo || {},
+                    lastStolenL: newLastStolenL,
+                    stolenActiveUntil: newStolenActiveUntil
                 }
             };
         });

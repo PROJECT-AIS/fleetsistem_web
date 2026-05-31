@@ -262,14 +262,14 @@ const getDashboardPeriodRange = (period) => {
   const now = new Date();
 
   if (period === "yearly") {
-    const start = new Date(now.getFullYear(), 0, 1);
-    const end = new Date(now.getFullYear() + 1, 0, 1);
+    const start = new Date(2026, 0, 1);
+    const end = new Date(Math.max(2030, now.getFullYear() + 2), 0, 1);
     return { start, end };
   }
 
   if (period === "monthly") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear() + 1, 0, 1);
     return { start, end };
   }
 
@@ -299,11 +299,15 @@ const buildDashboardBuckets = (period) => {
   const now = new Date();
 
   if (period === "yearly") {
-    return Array.from({ length: 12 }, (_, index) => {
-      const bucketStart = new Date(now.getFullYear(), index, 1);
-      const bucketEnd = new Date(now.getFullYear(), index + 1, 1);
+    const startYear = 2026;
+    const endYear = Math.max(2030, now.getFullYear() + 2);
+    const length = endYear - startYear + 1;
+    return Array.from({ length }, (_, index) => {
+      const year = startYear + index;
+      const bucketStart = new Date(year, 0, 1);
+      const bucketEnd = new Date(year + 1, 0, 1);
       return {
-        label: bucketStart.toLocaleDateString("id-ID", { month: "short" }),
+        label: String(year),
         start: bucketStart,
         end: bucketEnd,
       };
@@ -311,13 +315,11 @@ const buildDashboardBuckets = (period) => {
   }
 
   if (period === "monthly") {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => {
-      const bucketStart = new Date(now.getFullYear(), now.getMonth(), index + 1);
-      const bucketEnd = new Date(bucketStart);
-      bucketEnd.setDate(bucketStart.getDate() + 1);
+    return Array.from({ length: 12 }, (_, index) => {
+      const bucketStart = new Date(now.getFullYear(), index, 1);
+      const bucketEnd = new Date(now.getFullYear(), index + 1, 1);
       return {
-        label: String(index + 1),
+        label: bucketStart.toLocaleDateString("id-ID", { month: "short" }),
         start: bucketStart,
         end: bucketEnd,
       };
@@ -439,7 +441,7 @@ const MetricCard = ({ accent = "green", icon: Icon, eyebrow, value, description,
   );
 };
 
-const DashboardCard = ({ title, subtitle, icon: Icon, accent = "green", className = "", children }) => {
+const DashboardCard = ({ title, subtitle, icon: Icon, accent = "green", className = "", action, children }) => {
   const accentStyle = ACCENT_STYLES[accent] || ACCENT_STYLES.green;
 
   return (
@@ -449,9 +451,12 @@ const DashboardCard = ({ title, subtitle, icon: Icon, accent = "green", classNam
           <h3 className="text-[1rem] font-black leading-none tracking-tight text-white">{title}</h3>
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#727b88]">{subtitle}</p>
         </div>
-        <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-[16px] border border-white/6", accentStyle.icon)}>
-          {React.createElement(Icon, { className: "h-3.5 w-3.5" })}
-        </span>
+        <div className="flex items-center gap-3">
+          {action}
+          <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-[16px] border border-white/6", accentStyle.icon)}>
+            {React.createElement(Icon, { className: "h-3.5 w-3.5" })}
+          </span>
+        </div>
       </div>
       {children}
     </div>
@@ -471,6 +476,10 @@ export default function Analysis() {
   const [selectedOperator, setSelectedOperator] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [filterStripping, setFilterStripping] = useState("all");
+  const [filterStockpile, setFilterStockpile] = useState("all");
+  const [filterBarging, setFilterBarging] = useState("all");
+  const [filterFuel, setFilterFuel] = useState("konsumsi");
   const [tripRows, setTripRows] = useState([]);
   const [logRows, setLogRows] = useState([]);
   const [historyRows, setHistoryRows] = useState([]);
@@ -528,6 +537,7 @@ export default function Analysis() {
         statusTrip: row.statusTrip || "-",
         statusAlat: row.statusAlat || "-",
         fuel: Number(row.konsumsiFuel || 0),
+        fuelVolume: Number(row.volumeFuel || 0),
         speed: Number(row.kecepatan || 0),
         latitude: row.latitude || "-",
         longitude: row.longitude || "-",
@@ -549,6 +559,7 @@ export default function Analysis() {
           timeValue: row.waktu || "-",
           speed: Number(row.kecepatanKendaraan || 0),
           fuel: Number(row.sensorFuel?.konsumsi || 0),
+          fuelVolume: Number(row.sensorFuel?.volume || 0),
           latitude: toNumber(row.gps?.latitude),
           longitude: toNumber(row.gps?.longitude),
           activeDurationSeconds: parseDurationToSeconds(row.statusUnit?.totalDurasiAktif),
@@ -697,57 +708,51 @@ export default function Analysis() {
       const tripsInBucket = dashboardTripRows.filter((row) => isWithinRange(row.timestamp, bucket.start, bucket.end));
       const logsInBucket = dashboardLogRows.filter((row) => isWithinRange(row.timestamp, bucket.start, bucket.end));
 
+      const strippingTrips = tripsInBucket.filter(row => {
+        const mat = normalizeText(row.material);
+        if (filterStripping === "top_soil") return mat.includes("top soil") || mat.includes("topsoil");
+        if (filterStripping === "overburden") return mat.includes("ob") || mat.includes("overburden");
+        return mat.includes("top soil") || mat.includes("topsoil") || mat.includes("ob") || mat.includes("overburden");
+      }).length;
+
+      const stockpileTrips = tripsInBucket.filter(row => {
+        const mat = normalizeText(row.material);
+        if (filterStockpile === "lim_ore") return mat.includes("lim ore") || mat.includes("limonite");
+        if (filterStockpile === "sap_ore") return mat.includes("sap ore") || mat.includes("saprolite");
+        return mat.includes("lim ore") || mat.includes("limonite") || mat.includes("sap ore") || mat.includes("saprolite");
+      }).length;
+
+      const bargingTrips = tripsInBucket.filter(row => {
+        const mat = normalizeText(row.material);
+        if (filterBarging === "lim_ore") return mat.includes("lim ore") || mat.includes("limonite");
+        if (filterBarging === "sap_ore") return mat.includes("sap ore") || mat.includes("saprolite");
+        return mat.includes("lim ore") || mat.includes("limonite") || mat.includes("sap ore") || mat.includes("saprolite");
+      }).length;
+
+      const fuelData = logsInBucket.reduce((acc, row) => {
+        acc.konsumsi += row.fuel;
+        acc.stok = Math.max(acc.stok, row.fuelVolume || 0);
+        return acc;
+      }, { konsumsi: 0, stok: 0 });
+
       return {
         label: bucket.label,
-        fuel: logsInBucket.reduce((sum, row) => sum + row.fuel, 0),
-        activeFleet: new Set(logsInBucket.filter(isActiveLogRow).map((row) => row.unit).filter(Boolean)).size,
-        trips: tripsInBucket.length,
+        stripping: strippingTrips,
+        stockpile: stockpileTrips,
+        barging: bargingTrips,
+        fuelKonsumsi: fuelData.konsumsi,
+        fuelStok: fuelData.stok,
       };
     });
-  }, [dashboardBuckets, dashboardLogRows, dashboardTripRows]);
+  }, [dashboardBuckets, dashboardLogRows, dashboardTripRows, filterStripping, filterStockpile, filterBarging]);
 
-  const materialCompositionData = useMemo(() => {
-    const counts = dashboardTripRows.reduce((acc, row) => {
-      const key = normalizeLabel(row.material, "Tanpa Material");
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-
-    const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
-    const items = Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([name, value], index) => ({
-        name,
-        value,
-        percentage: total ? Math.round((value / total) * 100) : 0,
-        color: MATERIAL_COLORS[index % MATERIAL_COLORS.length],
-      }));
-
-    return { items, total };
-  }, [dashboardTripRows]);
-
-  const materialProductionData = useMemo(() => {
-    return Object.entries(
-      dashboardTripRows.reduce((acc, row) => {
-        const key = normalizeLabel(row.startLocation, "Lokasi Tidak Diketahui");
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {})
-    )
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([location, total]) => ({
-        location,
-        shortLocation: truncateText(location, 12),
-        total,
-      }));
-  }, [dashboardTripRows]);
-
-  const tripEfficiencyMax = useMemo(
-    () => Math.max(1, ...dashboardSeries.map((item) => Number(item.trips || 0))),
-    [dashboardSeries]
-  );
+  const chartMaxValues = useMemo(() => {
+    return {
+      stripping: Math.max(1, ...dashboardSeries.map(i => i.stripping)),
+      stockpile: Math.max(1, ...dashboardSeries.map(i => i.stockpile)),
+      barging: Math.max(1, ...dashboardSeries.map(i => i.barging)),
+    };
+  }, [dashboardSeries]);
 
   const tableRows = useMemo(() => {
     const groups = new Map();
@@ -922,9 +927,9 @@ export default function Analysis() {
   ]), []);
 
   const trailingTableColumns = useMemo(() => ([
-    { key: "durasiAktif", label: "DURASI AKTIF", className: "min-w-[116px] text-center" },
-    { key: "durasiPasif", label: "DURASI PASIF", className: "min-w-[116px] text-center" },
-    { key: "durasiMati", label: "DURASI MATI", className: "min-w-[110px] text-center" },
+    { key: "durasiAktif", label: "DURASI WORKING", className: "min-w-[116px] text-center" },
+    { key: "durasiPasif", label: "DURASI IDLING", className: "min-w-[116px] text-center" },
+    { key: "durasiMati", label: "DURASI PARKED", className: "min-w-[110px] text-center" },
     { key: "totalKonsumsiFuel", label: "TOTAL KONSUMSI FUEL", className: "min-w-[132px] text-center" },
     { key: "rataRataKonsumsiFuel", label: "RATA-RATA KONSUMSI FUEL (LITER PERJAM)", className: "min-w-[168px] text-center" },
   ]), []);
@@ -1038,196 +1043,140 @@ export default function Analysis() {
             </div>
           ) : viewMode === "chart" ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3 xl:overflow-hidden">
-              <div className="grid shrink-0 auto-rows-fr gap-3 md:grid-cols-2 2xl:grid-cols-4">
-                {dashboardSummary.map((item) => (
-                  <MetricCard key={item.eyebrow} {...item} />
-                ))}
-              </div>
 
-              <div className="grid min-h-0 flex-[1.02] auto-rows-fr items-stretch gap-3 2xl:grid-cols-4">
+
+              <div className="grid min-h-0 flex-[1.02] auto-rows-fr items-stretch gap-3 2xl:grid-cols-2">
                 <DashboardCard
-                  title="Material Composition"
-                  subtitle={`Based on payload type | ${dashboardScopeLabel}`}
+                  title="Stripping"
+                  subtitle={`Top Soil & Overburden | ${dashboardScopeLabel}`}
                   icon={Layers}
                   accent="green"
-                  className="min-h-0 2xl:col-span-2"
-                >
-                  <div className="grid h-full min-h-0 items-stretch gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-                    <div className="relative min-h-0">
-                      {materialCompositionData.items.length > 0 ? (
-                        <>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={materialCompositionData.items}
-                                dataKey="value"
-                                nameKey="name"
-                                innerRadius="63%"
-                                outerRadius="92%"
-                                paddingAngle={3}
-                                stroke="none"
-                              >
-                                {materialCompositionData.items.map((item) => (
-                                  <Cell key={item.name} fill={item.color} />
-                                ))}
-                              </Pie>
-                              <Tooltip content={<DashboardTooltip />} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6d7481]">Total Vol</span>
-                            <span className="mt-1 text-[2rem] font-black leading-none text-white">
-                              {formatNumber(materialCompositionData.total)}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <ChartEmptyState label="Belum ada komposisi material pada filter aktif." />
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5 overflow-y-auto">
-                      {materialCompositionData.items.length > 0 ? (
-                        materialCompositionData.items.map((item) => (
-                          <div key={item.name} className="flex items-center justify-between gap-3 rounded-[16px] border border-white/6 bg-[#24272d] px-3 py-2">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                              <span className="truncate text-sm font-semibold text-[#d7dbe3]">{item.name}</span>
-                            </div>
-                            <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs font-black text-white">
-                              {item.percentage}%
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/8 px-4 py-6 text-center text-sm font-semibold text-[#717784]">
-                          Data material belum tersedia.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </DashboardCard>
-
-                <DashboardCard
-                  title="Fuel Consumption"
-                  subtitle={`Usage trend | ${dashboardScopeLabel}`}
-                  icon={Droplets}
-                  accent="cyan"
-                  className="min-h-0 2xl:col-span-2"
-                >
-                  <div className="flex-1 min-h-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
-                        <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
-                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} />
-                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} />
-                        <Tooltip content={<DashboardTooltip />} />
-                        <Area
-                          type="monotone"
-                          dataKey="fuel"
-                          name="Fuel"
-                          unit=" L"
-                          stroke="#38bdf8"
-                          strokeWidth={3}
-                          fill="#38bdf8"
-                          fillOpacity={0.12}
-                          activeDot={{ r: 4, fill: "#38bdf8" }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </DashboardCard>
-              </div>
-
-              <div className="grid min-h-0 flex-1 auto-rows-fr items-stretch gap-3 xl:grid-cols-3">
-                <DashboardCard
-                  title="Fleet Activity"
-                  subtitle={`Active vehicles | ${dashboardScopeLabel}`}
-                  icon={Truck}
-                  accent="green"
                   className="min-h-0"
+                  action={
+                    <select
+                      value={filterStripping}
+                      onChange={(e) => setFilterStripping(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e2024] px-2 py-1 text-[10px] font-semibold text-white outline-none"
+                    >
+                      <option value="all">Semua</option>
+                      <option value="top_soil">Top Soil</option>
+                      <option value="overburden">Overburden</option>
+                    </select>
+                  }
                 >
                   <div className="flex-1 min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
                         <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
-                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} />
-                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} interval={0} padding={{ left: 20, right: 20 }} />
+                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} domain={[0, chartMaxValues.stripping]} allowDecimals={false} />
                         <Tooltip content={<DashboardTooltip />} />
-                        <Line
-                          type="monotone"
-                          dataKey="activeFleet"
-                          name="Active Fleet"
-                          stroke="#78d72b"
-                          strokeWidth={3}
-                          dot={false}
-                          activeDot={{ r: 4, fill: "#78d72b" }}
-                        />
+                        <Line type="monotone" dataKey="stripping" name="TON" stroke="#78d72b" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: "#78d72b" }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </DashboardCard>
 
                 <DashboardCard
-                  title="Trip Efficiency"
-                  subtitle={`Trips trend | ${dashboardScopeLabel}`}
-                  icon={Route}
-                  accent="pink"
+                  title="Stockpile"
+                  subtitle={`Lim Ore & Sap Ore | ${dashboardScopeLabel}`}
+                  icon={BarChart3}
+                  accent="cyan"
                   className="min-h-0"
+                  action={
+                    <select
+                      value={filterStockpile}
+                      onChange={(e) => setFilterStockpile(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e2024] px-2 py-1 text-[10px] font-semibold text-white outline-none"
+                    >
+                      <option value="all">Semua</option>
+                      <option value="lim_ore">Lim Ore</option>
+                      <option value="sap_ore">Sap Ore</option>
+                    </select>
+                  }
                 >
                   <div className="flex-1 min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
+                      <LineChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
                         <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
-                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} />
-                        <YAxis
-                          tick={chartTickClass}
-                          axisLine={false}
-                          tickLine={false}
-                          width={28}
-                          allowDecimals={false}
-                          domain={[0, tripEfficiencyMax]}
-                        />
+                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} interval={0} padding={{ left: 20, right: 20 }} />
+                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} domain={[0, chartMaxValues.stockpile]} allowDecimals={false} />
                         <Tooltip content={<DashboardTooltip />} />
-                        <Bar
-                          dataKey="trips"
-                          name="Trips"
-                          fill="#eb67b1"
-                          radius={[10, 10, 0, 0]}
-                          minPointSize={4}
-                        />
-                      </BarChart>
+                        <Line type="monotone" dataKey="stockpile" name="TON" stroke="#38bdf8" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: "#38bdf8" }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </DashboardCard>
+              </div>
+
+              <div className="grid min-h-0 flex-1 auto-rows-fr items-stretch gap-3 xl:grid-cols-2">
+                <DashboardCard
+                  title="Barging"
+                  subtitle={`Lim Ore & Sap Ore | ${dashboardScopeLabel}`}
+                  icon={Route}
+                  accent="pink"
+                  className="min-h-0"
+                  action={
+                    <select
+                      value={filterBarging}
+                      onChange={(e) => setFilterBarging(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e2024] px-2 py-1 text-[10px] font-semibold text-white outline-none"
+                    >
+                      <option value="all">Semua</option>
+                      <option value="lim_ore">Lim Ore</option>
+                      <option value="sap_ore">Sap Ore</option>
+                    </select>
+                  }
+                >
+                  <div className="flex-1 min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
+                        <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
+                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} interval={0} padding={{ left: 20, right: 20 }} />
+                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} domain={[0, chartMaxValues.barging]} allowDecimals={false} />
+                        <Tooltip content={<DashboardTooltip />} />
+                        <Line type="monotone" dataKey="barging" name="TON" stroke="#eb67b1" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: "#eb67b1" }} />
+                      </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </DashboardCard>
 
                 <DashboardCard
-                  title="Material Production"
-                  subtitle={`From entry parameter location | ${dashboardScopeLabel}`}
-                  icon={BarChart3}
-                  accent="green"
+                  title="Fuel"
+                  subtitle={`Stock & Consumption | ${dashboardScopeLabel}`}
+                  icon={Droplets}
+                  accent="indigo"
                   className="min-h-0"
+                  action={
+                    <select
+                      value={filterFuel}
+                      onChange={(e) => setFilterFuel(e.target.value)}
+                      className="rounded-lg border border-white/10 bg-[#1e2024] px-2 py-1 text-[10px] font-semibold text-white outline-none"
+                    >
+                      <option value="konsumsi">Konsumsi</option>
+                      <option value="stok">Stok</option>
+                    </select>
+                  }
                 >
                   <div className="flex-1 min-h-0">
-                    {materialProductionData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={materialProductionData} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
-                          <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
-                          <XAxis
-                            dataKey="shortLocation"
-                            tick={chartTickClass}
-                            axisLine={false}
-                            tickLine={false}
-                            interval={0}
-                          />
-                          <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
-                          <Tooltip content={<DashboardTooltip />} />
-                          <Bar dataKey="total" name="Trips" fill="#5ca11d" radius={[10, 10, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ChartEmptyState label="Belum ada data produksi berdasarkan lokasi." />
-                    )}
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dashboardSeries} margin={{ top: 10, right: 8, left: -24, bottom: 0 }}>
+                        <CartesianGrid className={chartGridClass} vertical={false} strokeDasharray="4 4" />
+                        <XAxis dataKey="label" tick={chartTickClass} axisLine={false} tickLine={false} interval={0} padding={{ left: 20, right: 20 }} />
+                        <YAxis tick={chartTickClass} axisLine={false} tickLine={false} width={28} />
+                        <Tooltip content={<DashboardTooltip />} />
+                        <Line
+                          type="monotone"
+                          dataKey={filterFuel === "stok" ? "fuelStok" : "fuelKonsumsi"}
+                          name="Fuel"
+                          unit=" L"
+                          stroke="#8d88ff"
+                          strokeWidth={3}
+                          dot={false}
+                          activeDot={{ r: 4, fill: "#8d88ff" }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </DashboardCard>
               </div>

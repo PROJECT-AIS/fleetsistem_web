@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MessageSquare, X, Send, Headset, Loader2, FileSpreadsheet, Search, Truck, Trash2, ChevronDown as ChevronIcon } from "lucide-react";
+import { MessageSquare, X, Send, Headset, Loader2, FileSpreadsheet, Search, Truck, Trash2, ChevronDown as ChevronIcon, AlertTriangle } from "lucide-react";
 import { publishToTopic } from "../../utils/mqttActions";
 import { influxService } from "../../services/influxService";
 
@@ -14,6 +14,43 @@ const ChatOverlay = () => {
   const [searchTarget, setSearchTarget] = useState("");
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [vehicleData, setVehicleData] = useState([]);
+  
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [showAlertExportMenu, setShowAlertExportMenu] = useState(false);
+  const [alertHistory, setAlertHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem("fms_alert_history");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse alert history", e);
+      return [];
+    }
+  });
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
+
+  useEffect(() => {
+    const handleSystemAlert = (e) => {
+      setAlertHistory(prev => [e.detail, ...prev].slice(0, 50));
+      setUnreadAlerts(prev => prev + 1);
+    };
+    window.addEventListener('fms_system_alert', handleSystemAlert);
+    return () => window.removeEventListener('fms_system_alert', handleSystemAlert);
+  }, []);
+
+  useEffect(() => {
+    if (isAlertOpen) setUnreadAlerts(0);
+  }, [isAlertOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("fms_alert_history", JSON.stringify(alertHistory));
+  }, [alertHistory]);
+  
+  const clearAlertHistory = () => {
+    if (window.confirm("Hapus semua riwayat alert?")) {
+      setAlertHistory([]);
+      localStorage.removeItem("fms_alert_history");
+    }
+  };
   const [history, setHistory] = useState(() => {
     try {
       const saved = localStorage.getItem("fms_chat_history");
@@ -189,6 +226,45 @@ const ChatOverlay = () => {
     }
   };
 
+  const exportAlertsToExcel = async (filterOptions = {}) => {
+    let dataToExport = [...alertHistory];
+
+    if (filterOptions.date) {
+      const targetDate = new Date(filterOptions.date).toDateString();
+      dataToExport = dataToExport.filter(m => new Date(m.timestamp).toDateString() === targetDate);
+    } else if (filterOptions.month) {
+      const [year, month] = filterOptions.month.split("-");
+      dataToExport = dataToExport.filter(m => {
+        const d = new Date(m.timestamp);
+        return d.getFullYear() === parseInt(year) && (d.getMonth() + 1) === parseInt(month);
+      });
+    }
+
+    const data = dataToExport.map(m => ({
+      Timestamp: m.timestamp ? new Date(m.timestamp).toLocaleString() : "-",
+      VehicleID: m.vehicleId,
+      Type: m.type,
+      Title: m.title,
+      Message: m.message
+    }));
+
+    if (data.length === 0) {
+      alert("Tidak ada data alert untuk filter tersebut.");
+      return;
+    }
+
+    try {
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "System Alerts");
+      XLSX.writeFile(wb, `FMS_System_Alerts_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+      console.error("Export alert history error:", error);
+      alert("Gagal export data alert.");
+    }
+  };
+
   const filteredVehicles = vehicleData.filter(v => 
     (v.noPlat || "").toLowerCase().includes(searchTarget.toLowerCase()) || 
     (v.idFms || "").toLowerCase().includes(searchTarget.toLowerCase())
@@ -197,7 +273,7 @@ const ChatOverlay = () => {
   return (
     <>
       {/* Circular Button Entry */}
-      <div className="mt-auto pt-6 border-t border-white/5 flex justify-center w-full">
+      <div className="mt-auto pt-6 border-t border-white/5 flex justify-center gap-4 w-full relative">
         <button
           onClick={() => setIsOpen(true)}
           className="group relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#39ff14]/20 bg-[#39ff14]/10 text-[#39ff14] shadow-[0_0_20px_rgba(57,255,20,0.1)] transition-all duration-300 hover:scale-110 hover:bg-[#39ff14] hover:text-black hover:shadow-[0_0_30px_rgba(57,255,20,0.4)] active:scale-95"
@@ -210,6 +286,116 @@ const ChatOverlay = () => {
             </span>
           )}
         </button>
+
+        <button
+          onClick={() => setIsAlertOpen(!isAlertOpen)}
+          className="group relative flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-500/20 bg-amber-500/10 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all duration-300 hover:scale-110 hover:bg-amber-500 hover:text-black hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] active:scale-95"
+          title="System Alerts"
+        >
+          <AlertTriangle className="h-7 w-7 transition-transform group-hover:scale-110" />
+          {unreadAlerts > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white ring-2 ring-[#1e1f23]">
+              {unreadAlerts > 99 ? "99+" : unreadAlerts}
+            </span>
+          )}
+        </button>
+
+        {isAlertOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="flex h-[80vh] w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/10 bg-[#1e1f23] shadow-2xl shadow-black/50 animate-in zoom-in-95 duration-300">
+              
+              <div className="flex flex-1 flex-col bg-[#2d2e32]">
+                <div className="flex items-center justify-between p-6 bg-black/20">
+                  <h2 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                    <AlertTriangle className="h-8 w-8 text-amber-500" /> SYSTEM ALERTS
+                  </h2>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowAlertExportMenu(!showAlertExportMenu)}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all",
+                          showAlertExportMenu ? "bg-amber-500 text-black" : "bg-white/5 text-amber-500 hover:bg-amber-500/10"
+                        )}
+                      >
+                        EXPORT <ChevronIcon className={cn("h-4 w-4 transition-transform", showAlertExportMenu && "rotate-180")} />
+                      </button>
+                      
+                      {showAlertExportMenu && (
+                        <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#1e1f23] shadow-2xl z-[100] animate-in slide-in-from-top-2">
+                          <button 
+                            onClick={() => { exportAlertsToExcel({ date: new Date() }); setShowAlertExportMenu(false); }}
+                            className="w-full px-4 py-3 text-left text-xs font-bold text-white hover:bg-amber-500 hover:text-black transition-all"
+                          >
+                            HARI INI
+                          </button>
+                          <button 
+                            onClick={() => { exportAlertsToExcel({ month: `${new Date().getFullYear()}-${new Date().getMonth() + 1}` }); setShowAlertExportMenu(false); }}
+                            className="w-full px-4 py-3 text-left text-xs font-bold text-white border-t border-white/5 hover:bg-amber-500 hover:text-black transition-all"
+                          >
+                            BULAN INI
+                          </button>
+                          <button 
+                            onClick={() => { exportAlertsToExcel(); setShowAlertExportMenu(false); }}
+                            className="w-full px-4 py-3 text-left text-xs font-bold text-white border-t border-white/5 hover:bg-amber-500 hover:text-black transition-all"
+                          >
+                            SEMUA DATA
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={clearAlertHistory}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-red-500 hover:bg-red-500 hover:text-white transition-all"
+                      title="Hapus History Alert"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setIsAlertOpen(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-gray-400 hover:bg-red-500 hover:text-white transition-all ml-2">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-10 space-y-4 custom-scrollbar text-left">
+                  {alertHistory.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center opacity-30">
+                      <AlertTriangle className="h-16 w-16 mb-4" />
+                      <span className="text-sm font-bold uppercase tracking-widest">NO RECENT ALERTS</span>
+                    </div>
+                  ) : (
+                    alertHistory.map((alert, i) => (
+                      <div key={i} className="flex gap-6 p-6 rounded-2xl border border-white/5 bg-white/5 hover:bg-white/10 transition-colors">
+                        <div className={cn(
+                          "mt-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2",
+                          alert.iconColor === 'amber' ? "border-amber-500/20 bg-amber-500/10 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]" :
+                          alert.iconColor === 'red' ? "border-red-500/20 bg-red-500/10 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.1)]" :
+                          "border-orange-500/20 bg-orange-500/10 text-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.1)]"
+                        )}>
+                          <AlertTriangle className="h-7 w-7" />
+                        </div>
+                        <div className="flex flex-col min-w-0 justify-center">
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className="text-xl font-black text-white">{alert.title}</span>
+                            {alert.timestamp && (
+                              <span className="text-xs text-gray-500 font-mono bg-black/30 px-3 py-1 rounded-full">
+                                {new Date(alert.timestamp).toLocaleTimeString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-400 leading-relaxed max-w-4xl">
+                            {alert.message}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Large Modal */}
