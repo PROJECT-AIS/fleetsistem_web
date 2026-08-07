@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { showToast } from "../../../utils/swalTheme";
 import { Database, Users, Truck, User, MapPin, Save, X, Fuel, Upload, Eye, EyeOff, Check, Loader2, PackageSearch, Wifi, WifiOff, CreditCard } from "lucide-react";
 import { useNfcScan } from "../../../hooks/useNfcScan";
 import PageLayout from "../../layout/PageLayout";
@@ -57,30 +58,7 @@ const EQUIPMENT_STATUS_OPTIONS = [
     { value: "Breakdown", label: "Breakdown" },
 ];
 
-// Toast notification
-const Toast = ({ message, type, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 3000);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    return (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-in zoom-in-95 fade-in duration-300">
-            <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border backdrop-blur-xl ${
-                type === "success" 
-                    ? "bg-[#74CD25]/10 border-[#74CD25]/20 text-[#74CD25] shadow-[0_0_40px_rgba(116,205,37,0.15)]" 
-                    : "bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_0_40px_rgba(239,68,68,0.15)]"
-                }`}>
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                    type === "success" ? "border-[#74CD25]/30 bg-[#74CD25]/20" : "border-red-500/30 bg-red-500/20"
-                }`}>
-                    {type === "success" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                </div>
-                <span className="font-bold text-sm tracking-widest uppercase">{message}</span>
-            </div>
-        </div>
-    );
-};
+// Toast notification via SweetAlert2 (see utils/swalTheme.js)
 
 // Reusable form input component
 const FormInput = ({
@@ -366,7 +344,7 @@ const KalibrasiTab = ({ showToast, alatList, rows, onSaved, manageHref = "/param
                         "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
                         compact && "px-5 py-2.5"
                     )}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                         Simpan Kalibrasi
                     </button>
                     <button type="button" onClick={() => setForm({ alatId: "", empty: "", full: "", kapasitasTangki: "" })} className={cn(
@@ -465,7 +443,7 @@ const InputDataAlat = ({ showToast, rows, onSaved, manageHref = "/parameter/view
             
             <div className={cn("flex gap-3 pt-4", compact && "pt-2")}>
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                     Simpan Data Alat
                 </button>
             </div>
@@ -593,7 +571,7 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
                         disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-[#74CD25] text-white rounded-lg font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50"
                     >
-                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-pulse" /> : <Save className="w-3.5 h-3.5" />}
                         Simpan Operator
                     </button>
                 </div>
@@ -681,7 +659,7 @@ const InputDataOperator = ({ showToast, rows, onSaved, manageHref = "/parameter/
 
             <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                     Simpan Data Operator
                 </button>
             </div>
@@ -817,7 +795,7 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
                         )}
                         {!isLoaded && !loadError && (
                             <div className="w-full h-full flex items-center justify-center bg-[#2d2e32]">
-                                <Loader2 className="w-4 h-4 text-[#74CD25] animate-spin" />
+                                <Loader2 className="w-4 h-4 text-[#74CD25] animate-pulse" />
                                 <span className="ml-2 text-sm text-gray-400">Loading map...</span>
                             </div>
                         )}
@@ -859,7 +837,7 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
                         disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-[#74CD25] text-white rounded-lg font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50"
                     >
-                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {loading ? <Loader2 className="w-3.5 h-3.5 animate-pulse" /> : <Save className="w-3.5 h-3.5" />}
                         Simpan Lokasi
                     </button>
                 </div>
@@ -902,7 +880,7 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
                 )}
                 {!isLoaded && !loadError && (
                     <div className="w-full h-full flex items-center justify-center bg-[#2d2e32]">
-                        <Loader2 className="w-6 h-6 text-[#74CD25] animate-spin" />
+                        <Loader2 className="w-6 h-6 text-[#74CD25] animate-pulse" />
                         <span className="ml-2 text-gray-400">Loading map...</span>
                     </div>
                 )}
@@ -942,7 +920,7 @@ const InputDataLokasi = ({ showToast, rows, onSaved, manageHref = "/parameter/vi
 
             <div className="flex gap-3 pt-4">
                 <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                     Simpan Data Lokasi
                 </button>
             </div>
@@ -998,7 +976,7 @@ const InputShiftCode = ({ showToast, rows, onSaved, manageHref = "/parameter/vie
                         "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
                         compact && "px-5 py-2.5 text-[11px]"
                     )}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                         Simpan Shift Code
                     </button>
                 </div>
@@ -1053,7 +1031,7 @@ const InputMaterialType = ({ showToast, rows, onSaved, manageHref = "/parameter/
                         "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
                         compact && "px-5 py-2.5 text-[11px]"
                     )}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                         Simpan Material Type
                     </button>
                 </div>
@@ -1154,7 +1132,7 @@ const UserManagementTab = ({ showToast, rows, onSaved, manageHref = "/setup/view
                         "flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95",
                         compact && "px-5 py-2.5"
                     )}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                         Simpan User
                     </button>
                 </div>
@@ -1187,7 +1165,7 @@ export default function ConfigScreen({
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState(defaultTab);
     const [activeInputTab, setActiveInputTab] = useState(defaultInputTab);
-    const [toast, setToast] = useState(null);
+    // Toast notifications handled by SweetAlert2
     const [alatList, setAlatList] = useState([]);
     const [alatRows, setAlatRows] = useState([]);
     const [operatorRows, setOperatorRows] = useState([]);
@@ -1267,7 +1245,7 @@ export default function ConfigScreen({
         loadUserData().catch(console.error);
     }, [loadAlatData, loadOperatorData, loadLokasiData, loadShiftCodeData, loadMaterialTypeData, loadKalibrasiData, loadUserData]);
 
-    const showToast = (message, type) => setToast({ message, type });
+    // showToast is imported from swalTheme.js
     const handleInputTabChange = (tabId) => {
         setActiveInputTab(tabId);
 
@@ -1283,7 +1261,7 @@ export default function ConfigScreen({
 
     return (
         <PageLayout noScroll={true} className="p-6">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
 
             <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Download, Search, ChevronLeft, ChevronRight, Filter, RefreshCw } from "lucide-react";
+import { SkeletonTableRow } from "../../shared/Skeleton";
 import PageLayout from "../../layout/PageLayout";
 import api from "../../../services/api";
 import {
@@ -196,7 +197,7 @@ export default function DataTrip() {
                 disabled={isRefreshing}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#4a4b4d] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[#5a5b5d] disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-pulse" : ""}`} />
                 Refresh
               </button>
               <button
@@ -234,15 +235,14 @@ export default function DataTrip() {
                   </tr>
                 </thead>
                 <tbody className={analysisBodyClass}>
-                  {loading && dataTrip.length === 0 ? (
-                    <tr>
-                      <td colSpan="12" className="px-4 py-8 text-center text-gray-400">
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#74CD25] border-t-transparent" />
-                          <span>Memuat data perjalanan...</span>
-                        </div>
-                      </td>
-                    </tr>
+                  {loading ? (
+                    Array.from({ length: 10 }).map((_, i) => (
+                      <tr key={i} className="group border-b border-white/5 bg-[#25282d]/50 transition-all">
+                        <td colSpan={12} className="p-0">
+                          <SkeletonTableRow columns={12} />
+                        </td>
+                      </tr>
+                    ))
                   ) : paginatedData.length > 0 ? (
                     paginatedData.map((row, idx) => (
                       <tr

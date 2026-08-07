@@ -74,7 +74,6 @@ const NAV_ITEMS = [
       { path: '/analysis', search: '?view=table', icon: Table2, label: 'Table' },
     ],
   },
-  { type: 'link', path: '/alerts', icon: BellRing, label: 'Alerts' },
 ]
 
 const isPathActive = (pathname, path) => pathname === path
@@ -232,7 +231,7 @@ export default function SideBar() {
           </nav>
         </div>
 
-        <ChatOverlay />
+        <ChatOverlay isSidebarOpen={isSidebarOpen} />
       </div>
     </div>
   )

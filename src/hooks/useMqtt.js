@@ -70,7 +70,11 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
         let operatorId = nfcUid || "-";
 
         if (nfcUid) {
-            const foundOp = operators.find(op => op.idCardNfc === nfcUid || op.nfcUid === nfcUid);
+            const searchUid = String(nfcUid).toUpperCase();
+            const foundOp = operators.find(op => 
+                (op.idCardNfc && String(op.idCardNfc).toUpperCase() === searchUid) || 
+                (op.nfcUid && String(op.nfcUid).toUpperCase() === searchUid)
+            );
             if (foundOp) {
                 operatorName = foundOp.nama;
                 operatorId = foundOp.idOperator || foundOp.id || nfcUid;
@@ -212,6 +216,7 @@ export const useMqtt = (topic = DEFAULT_TOPIC, { enabled = true, referenceData =
                     operatorName,
                     operatorId,
                     plateNumber: assetInfo?.noUnit || assetInfo?.noPlat || vehicleId,
+                    distance: data.gps?.total_distance_km ? `${Number(data.gps.total_distance_km).toFixed(1)} KM` : "-",
                     lokasiAwal,
                     lokasiAkhir,
                     jenisMuatan,

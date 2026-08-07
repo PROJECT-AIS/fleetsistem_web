@@ -21,7 +21,9 @@ export const normalizeDeviceStatus = (value, fallback = "offline") => {
     normalized === "off" ||
     normalized === "mati" ||
     normalized === "inactive" ||
-    normalized === "disconnected"
+    normalized === "disconnected" ||
+    normalized === "degradated" ||
+    normalized === "degraded"
   ) {
     return "offline";
   }

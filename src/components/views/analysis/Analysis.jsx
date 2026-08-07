@@ -704,6 +704,16 @@ export default function Analysis() {
   }, [dashboardLogRows, dashboardTripRows, dashboardPeriod]);
 
   const dashboardSeries = useMemo(() => {
+    if (loading) {
+      return dashboardBuckets.map((bucket) => ({
+        label: bucket.label,
+        stripping: 0,
+        stockpile: 0,
+        barging: 0,
+        fuelKonsumsi: 0,
+        fuelStok: 0,
+      }));
+    }
     return dashboardBuckets.map((bucket) => {
       const tripsInBucket = dashboardTripRows.filter((row) => isWithinRange(row.timestamp, bucket.start, bucket.end));
       const logsInBucket = dashboardLogRows.filter((row) => isWithinRange(row.timestamp, bucket.start, bucket.end));
@@ -965,7 +975,7 @@ export default function Analysis() {
                   className="inline-flex h-10 w-10 items-center justify-center self-start rounded-[16px] border border-white/6 bg-[#30343a] text-[#94a0ae] transition-all hover:bg-[#373c43] hover:text-white disabled:opacity-40 xl:self-end"
                   title="Refresh analysis"
                 >
-                  <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+                  <RefreshCw className={cn("h-4 w-4", refreshing && "animate-pulse")} />
                 </button>
 
                 <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#737b88]">
@@ -1034,14 +1044,7 @@ export default function Analysis() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex min-h-[260px] items-center justify-center rounded-[22px] border border-white/8 bg-[#292c31] shadow-[0_16px_32px_rgba(0,0,0,0.22)]">
-              <div className="flex items-center gap-3 text-sm font-bold text-[#c9d0da]">
-                <RefreshCw className="h-4 w-4 animate-spin text-[#8BFF2A]" />
-                Memuat data analisis...
-              </div>
-            </div>
-          ) : viewMode === "chart" ? (
+          {viewMode === "chart" ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3 xl:overflow-hidden">
 
 
@@ -1230,7 +1233,15 @@ export default function Analysis() {
                       </tr>
                     </thead>
                     <tbody className={analysisBodyClass}>
-                      {paginatedRows.length > 0 ? (
+                      {loading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <tr key={i} className={analysisRowClass}>
+                            <td colSpan={rowSpanTableColumns.length + groupedTableColumns.length + trailingTableColumns.length} className="px-4 py-4">
+                              <div className="h-4 w-full animate-pulse rounded-md bg-white/10" />
+                            </td>
+                          </tr>
+                        ))
+                      ) : paginatedRows.length > 0 ? (
                         paginatedRows.map((row, index) => (
                           <tr key={row.key || `${row.idAlat}-${row.tanggal}-${row.operator}-${index}`} className={analysisRowClass} style={getStripedRowStyle(index)}>
                             {rowSpanTableColumns.map((column) => (

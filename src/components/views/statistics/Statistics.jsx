@@ -130,7 +130,6 @@ const MaterialPieChart = ({ data, totalValue }) => (
             outerRadius="95%"
             paddingAngle={4}
             stroke="none"
-            isAnimationActive={false}
           >
             {data.map((entry, index) => (
               <Cell 
@@ -309,6 +308,15 @@ export default function Statistics() {
   }, [activePeriod]);
 
   const chartData = useMemo(() => {
+    if (loading) {
+      return periodBins.map((bin) => ({
+        label: bin.label,
+        trip: 0,
+        operating: 0,
+        fuel: 0,
+      }));
+    }
+
     const normalizedStatRows = influxStats
       .map((row) => ({
         ...row,
@@ -374,6 +382,16 @@ export default function Statistics() {
   const materialPieData = useMemo(() => {
     if (!materialTypeDefinitions.length) return [];
 
+    if (loading) {
+      return materialTypeDefinitions.map((material) => ({
+        key: material.key,
+        name: material.label,
+        color: material.color,
+        value: 0,
+        percent: 0,
+      }));
+    }
+
     const raw = materialTypeDefinitions.map((material) => ({
       key: material.key,
       name: material.label,
@@ -420,6 +438,14 @@ export default function Statistics() {
 
   const locationBasedMaterialData = useMemo(() => {
     if (!lokasiEntries.length) return materialBarData;
+
+    if (loading) {
+      return lokasiEntries.map((lokasi, index) => ({
+        name: lokasi.name || `Lokasi ${index + 1}`,
+        value: 0,
+        color: getThemeSeriesColor(index),
+      }));
+    }
 
     return lokasiEntries.map((lokasi, index) => {
       const locationName = normalizeText(lokasi.name);
@@ -470,7 +496,7 @@ export default function Statistics() {
             onClick={fetchStats}
             className="p-2.5 text-gray-500 hover:text-[#74CD25] transition-colors"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-pulse")} />
           </button>
         </div>
       </div>
@@ -525,7 +551,6 @@ export default function Statistics() {
                   strokeWidth={4}
                   fillOpacity={1} 
                   fill="url(#colorFuel)" 
-                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -552,7 +577,6 @@ export default function Statistics() {
                   strokeWidth={4} 
                   dot={false}
                   activeDot={{ r: 8, strokeWidth: 0, fill: "#74CD25" }}
-                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -581,7 +605,7 @@ export default function Statistics() {
                   width={35}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
-                <Bar dataKey="trip" fill="#F472B6" radius={[8, 8, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="trip" fill="#F472B6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -597,7 +621,7 @@ export default function Statistics() {
                 <XAxis dataKey="name" tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} padding={{ left: 20, right: 20 }} />
                 <YAxis tick={{ fill: "#666", fontSize: 9, fontWeight: 900 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]} isAnimationActive={false}>
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {locationBasedMaterialData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                   ))}

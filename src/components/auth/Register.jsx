@@ -220,7 +220,7 @@ export default function Register() {
             >
               {loading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-pulse"></div>
                   Creating Account...
                 </>
               ) : success ? (

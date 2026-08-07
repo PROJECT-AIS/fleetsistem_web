@@ -127,7 +127,7 @@ export default function Alerts() {
             onClick={() => fetchAlat(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-[#4a4b4d] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#5a5b5d]"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-pulse")} />
             Refresh
           </button>
         </div>

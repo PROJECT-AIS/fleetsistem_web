@@ -21,6 +21,7 @@ import {
   X,
   Route,
   Map,
+  Zap,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import {
@@ -59,6 +60,12 @@ const formatClockTime = (value) => {
 
   const normalized = String(value).trim();
   if (!normalized || normalized === "-") return "-";
+
+  // Try parsing as Date to handle timezones correctly
+  const dateObj = new Date(normalized);
+  if (!isNaN(dateObj.getTime())) {
+    return dateObj.toLocaleTimeString("id-ID", { hour12: false });
+  }
 
   const isoMatch = normalized.match(/T(\d{2}:\d{2}:\d{2})/);
   if (isoMatch) return isoMatch[1];
@@ -216,7 +223,7 @@ const ProductionItem = React.memo(
   ({ label, value, toneColor, className, displayValue }) => (
     <div
       className={cn(
-        "flex h-full min-h-[42px] min-w-0 items-center overflow-hidden rounded-[1.35rem] border border-white/8 bg-[#2c3238] shadow-lg shadow-black/15 transition-all hover:border-[#74CD25]/25",
+        "flex h-full min-h-[42px] min-w-0 items-center overflow-hidden rounded-[1.35rem] border border-white/8 bg-[#2c3238] shadow-lg shadow-black/15 transition-all hover:border-[#74CD25]/25 pointer-events-auto",
         className,
       )}
     >
@@ -424,7 +431,13 @@ const VehicleSearchPanel = React.memo(
 );
 
 const BottomChartCard = React.memo(
-  ({ title, subtitle, data, xKey, hasAnimated }) => (
+  ({ title, subtitle, data, xKey, hasAnimated, loading }) => {
+    const displayData = data && data.length > 0 ? data : Array.from({ length: 7 }).map((_, i) => ({
+      [xKey]: '',
+      value: 0
+    }));
+
+    return (
     <div
       className={cn(
         bottomCardShellClass,
@@ -436,14 +449,14 @@ const BottomChartCard = React.memo(
         <h3 className={bottomCardTitleClass}>{title}</h3>
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-3.5 pb-2.5 pt-1.5">
-        <div className={cn("mb-0 text-gray-500", metaLabelClass)}>
+        <div className={cn("mb-0 text-[#74CD25]", metaLabelClass)}>
           {subtitle}
         </div>
         <div className="pointer-events-auto min-h-0 flex-1 pt-1">
           <div className="h-full w-full px-1 pb-1 pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={data}
+                data={displayData}
                 margin={{ top: 6, right: 8, left: 2, bottom: 2 }}
               >
                 <CartesianGrid stroke="#5b5c60" vertical={false} />
@@ -472,8 +485,8 @@ const BottomChartCard = React.memo(
                   strokeWidth={2}
                   dot={{ fill: "#7fff3f", r: 2.5 }}
                   activeDot={{ fill: "#7fff3f", r: 4 }}
-                  isAnimationActive={!hasAnimated}
-                  animationDuration={hasAnimated ? 0 : 1500}
+                  isAnimationActive={true}
+                  animationDuration={1500}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -481,7 +494,7 @@ const BottomChartCard = React.memo(
         </div>
       </div>
     </div>
-  ),
+  )},
 );
 
 const TripRow = React.memo(({ trip }) => {
@@ -580,7 +593,7 @@ const DetailRow = React.memo(({ label, value, icon }) => (
       })}
     </div>
     <div className="min-w-0">
-      <div className={cn(metaLabelClass, "text-gray-500")}>{label}</div>
+      <div className={cn(metaLabelClass, "text-[#74CD25]")}>{label}</div>
       <div className={cn("text-sm text-white", contentValueClass)}>{value}</div>
     </div>
   </div>
@@ -675,7 +688,7 @@ const VehicleInfoCard = React.memo(
                 >
                   {Math.round(vehicle.speed || 0)}
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#74CD25]">
                   KM/H
                 </span>
               </div>
@@ -692,7 +705,7 @@ const VehicleInfoCard = React.memo(
 
           <div className="flex items-start justify-between gap-4 border-t border-white/8 pt-2">
             <div className="min-w-0">
-              <div className={cn(metaLabelClass, "text-gray-500")}>
+              <div className={cn(metaLabelClass, "text-[#74CD25]")}>
                 Distance
               </div>
               <div
@@ -705,8 +718,8 @@ const VehicleInfoCard = React.memo(
               </div>
             </div>
             <div className="min-w-0 text-right">
-              <div className={cn(metaLabelClass, "text-gray-500")}>
-                Fuel Capacity
+              <div className={cn(metaLabelClass, "text-[#74CD25]")}>
+                Fuel Volume
               </div>
               <div
                 className={cn(
@@ -714,7 +727,7 @@ const VehicleInfoCard = React.memo(
                   contentValueClass,
                 )}
               >
-                {formatFuelCapacity(vehicle)}
+                {vehicle.fuelVolume !== "-" ? `${formatNumber(vehicle.fuelVolume)} L` : "-"}
               </div>
             </div>
           </div>
@@ -728,7 +741,7 @@ const VehicleInfoCard = React.memo(
             )}
           >
             <DetailRow
-              label="Equipment ID"
+              label="Device ID (FMS)"
               value={vehicle.idFms || `FMS-${vehicle.id}`}
               icon={Truck}
             />
@@ -750,11 +763,7 @@ const VehicleInfoCard = React.memo(
             <DetailRow label="Trip Status" value={tripStatus} icon={MapPin} />
             <DetailRow
               label="Geofence"
-              value={
-                vehicle.lastTripStatus === "On Trip"
-                  ? `${vehicle.lokasiAwal || "-"} - ${vehicle.lokasiAkhir || "-"}`
-                  : vehicle.geofenceName || "-"
-              }
+              value={vehicle.geofenceName || "-"}
               icon={Map}
             />
           </div>
@@ -765,53 +774,87 @@ const VehicleInfoCard = React.memo(
 );
 
 const VehicleTooltip = React.memo(({ vehicle, position }) => {
-  const cardWidth = 184;
-  const cardHeight = 78;
+  const cardWidth = 230;
+  const cardHeight = 125;
   const markerAnchorY = 34;
+  
+  const opStatus = normalizeEquipmentOperationalStatus(vehicle.equipmentStatus);
+  let statusColor = "bg-[#74CD25]";
+  let pointerColor = "#74CD25";
+  let textColor = "text-[#1e1e1e]";
+  let statusText = "WORKING";
+
+  if (opStatus === "pasif") {
+    statusColor = "bg-amber-500";
+    pointerColor = "#f59e0b"; // amber-500
+    statusText = "IDLING";
+  } else if (opStatus === "offline") {
+    statusColor = "bg-red-500";
+    pointerColor = "#ef4444"; // red-500
+    statusText = "PARKED";
+    textColor = "text-white";
+  }
 
   return (
     <div
-      className="fixed z-[1000] pointer-events-none"
+      className="fixed z-[1000] pointer-events-none drop-shadow-2xl"
       style={{
         left: position.x - cardWidth / 2,
-        top: position.y - cardHeight + markerAnchorY - 82,
+        top: position.y - cardHeight + markerAnchorY - 50,
         width: cardWidth,
       }}
     >
-      <div className="overflow-hidden rounded-lg bg-white shadow-2xl">
-        <img
-          src={vehicle.image}
-          alt={vehicle.name}
-          className="h-[44px] w-full object-cover"
-          loading="lazy"
-        />
-        <div className="relative p-2.5 pb-5">
-          <div
-            className={cn("truncate text-[13px] text-black", contentValueClass)}
-          >
-            {vehicle.name}
+      <div className="relative">
+        <div className={cn("flex flex-col overflow-hidden rounded-[1.25rem] shadow-2xl", statusColor)}>
+          <div className="flex flex-col p-3.5 pb-4 bg-[#1e1e1e] rounded-[1.25rem]">
+            
+            {/* Top Info Row */}
+            <div className="mb-3 flex items-center justify-center text-gray-400 text-center">
+              <span className="text-[10px] font-medium tracking-wide">
+                {vehicle.metadata?.jenisAlat || "HEAVY EQUIPMENT"}
+              </span>
+            </div>
+
+            {/* Avatar & Title */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/5">
+                <img
+                  src={vehicle.image}
+                  alt={vehicle.name}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <h3 className="truncate text-[15px] font-bold text-white">
+                  {vehicle.name}
+                </h3>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <div className={cn("h-1.5 w-1.5 rounded-full", opStatus === 'online' ? 'bg-[#74CD25]' : opStatus === 'pasif' ? 'bg-amber-500' : 'bg-red-500')} />
+                  <p className="truncate text-[11px] font-medium tracking-wide text-gray-400">
+                    {vehicle.metadata?.merk || "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
           </div>
-          <div className={cn("text-gray-500", helperTextClass)}>
-            {vehicle.plateNumber || "No. Plat"}
+
+          <div className={cn("flex items-center justify-center py-1.5", statusColor)}>
+            <span className={cn("text-[11px] font-bold uppercase tracking-widest", textColor)}>
+              {statusText}
+            </span>
           </div>
-          <span
-            className={cn(
-              "absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white shadow",
-              normalizeEquipmentOperationalStatus(vehicle.equipmentStatus) === "online"
-                ? "bg-[#74CD25]"
-                : normalizeEquipmentOperationalStatus(vehicle.equipmentStatus) === "pasif"
-                  ? "bg-amber-500"
-                  : "bg-red-500",
-            )}
-          >
-            {normalizeEquipmentOperationalStatus(vehicle.equipmentStatus) === "online"
-              ? "Working"
-              : normalizeEquipmentOperationalStatus(vehicle.equipmentStatus) === "pasif"
-                ? "Idling"
-                : "Parked"}
-          </span>
         </div>
-        <div className="absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-4 border-t-4 border-x-transparent border-t-white" />
+        
+        {/* Pointer Triangle */}
+        <div 
+          className="absolute left-1/2 -bottom-2 -translate-x-1/2 h-0 w-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent" 
+          style={{ borderTopColor: pointerColor }} 
+        />
       </div>
     </div>
   );
@@ -1091,7 +1134,8 @@ const HomeScreen = () => {
             "-",
           tripStartTime: mqttVehicle?.tripStartTime ?? v.tripStartTime ?? null,
           lokasiAwal: mappedLokasiAwal,
-          lokasiAkhir: mqttVehicle?.lokasiAkhir || "-",
+          lokasiAkhir: mqttVehicle?.lokasiAkhir || v.lokasiAkhir || "-",
+          geofenceName: mqttVehicle?.geofenceName || v.geofenceName || "-",
           jenisMuatan: mqttVehicle?.jenisMuatan || "-",
           image: registration?.gambar
             ? resolveBackendUrl(registration.gambar)
@@ -1104,7 +1148,10 @@ const HomeScreen = () => {
             v.plateNumber ||
             v.id,
           fuel: mqttVehicle?.fuel || v.fuel || null,
+          fuelVolume: mqttVehicle?.fuel?.volume_l ?? v.fuelLevel ?? "-",
+          fuelConsumption: mqttVehicle?.fuel?.consumption_l ?? v.fuelConsumption ?? "-",
           stolenActiveUntil: mqttVehicle?.stolenActiveUntil || 0,
+          metadata: mqttVehicle?.metadata || registration || {},
         };
       });
   }, [influxVehicles, rawVehicles, registeredAlat, registeredVehicleIds]);
@@ -1166,15 +1213,25 @@ const HomeScreen = () => {
       setRealTripHistory([]);
       return;
     }
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
     const filtered = tripEntries
-      .filter(
-        (trip) =>
-          String(trip.idAlat || "").trim() ===
-          String(selectedVehicle.id || "").trim(),
-      )
-      .slice(0, 4)
-      .map((trip) => {
+      .filter((trip) => {
+        if (String(trip.idAlat || "").trim() !== String(selectedVehicle.id || "").trim()) return false;
+        
         // Fix for 1970 timestamps: use createdAt if waktu is invalid
+        const rawTime = trip.waktuFinish || trip.waktuStart;
+        const isInvalid = !rawTime || rawTime.startsWith("1970");
+        const displayTime = isInvalid ? trip.createdAt : rawTime;
+        
+        if (!displayTime) return false;
+        const tripTime = new Date(displayTime).getTime();
+        
+        // Return trips within last 24 hours
+        return (now - tripTime) <= twentyFourHours;
+      })
+      .map((trip) => {
         const rawTime = trip.waktuFinish || trip.waktuStart;
         const isInvalid = !rawTime || rawTime.startsWith("1970");
         const displayTime = isInvalid ? trip.createdAt : rawTime;
@@ -1222,7 +1279,7 @@ const HomeScreen = () => {
       });
     }
 
-    return history.slice(0, 4);
+    return history;
   }, [realTripHistory, currentVehicle]);
 
   const handleVehicleClick = useCallback((vehicle) => {
@@ -1427,6 +1484,10 @@ const HomeScreen = () => {
     }));
   }, [influxSummary]);
 
+  const calculatedTotalMaterials = useMemo(() => {
+    return produksiItems.reduce((acc, curr) => acc + (curr.value || 0), 0);
+  }, [produksiItems]);
+
   const bottomCardsPadding = selectedVehicle ? "pr-[376px]" : "";
 
   return (
@@ -1454,7 +1515,7 @@ const HomeScreen = () => {
                 <ProductionItem
                   className="w-56"
                   label="Total Materials"
-                  value={influxSummary?.total_produksi || 0}
+                  value={calculatedTotalMaterials}
                   toneColor="bg-white !text-[#5FA81E] font-bold"
                 />
                 <ProductionItem
@@ -1478,16 +1539,18 @@ const HomeScreen = () => {
                   ))}
                 </div>
 
-                <div className="pointer-events-auto flex justify-end">
-                  <VehicleSearchPanel
-                    searchTerm={vehicleSearch}
-                    onSearchChange={setVehicleSearch}
-                    onClear={() => setVehicleSearch("")}
-                    onKeyDown={handleSearchKeyDown}
-                    results={filteredVehicleData}
-                    onSelectVehicle={handleVehicleSearchSelect}
-                    selectedVehicleId={selectedVehicle?.id}
-                  />
+                <div className="flex justify-end pointer-events-none">
+                  <div className="pointer-events-auto">
+                    <VehicleSearchPanel
+                      searchTerm={vehicleSearch}
+                      onSearchChange={setVehicleSearch}
+                      onClear={() => setVehicleSearch("")}
+                      onKeyDown={handleSearchKeyDown}
+                      results={filteredVehicleData}
+                      onSelectVehicle={handleVehicleSearchSelect}
+                      selectedVehicleId={selectedVehicle?.id}
+                    />
+                  </div>
                 </div>
 
                 {systemAlerts.length > 0 && (
@@ -1575,7 +1638,7 @@ const HomeScreen = () => {
                   title="Fuel Consumption"
                   subtitle="Liter (L)"
                   data={currentVehicle.weeklyFuel || []}
-                  xKey="day"
+                  xKey="time"
                   hasAnimated={hasAnimated}
                 />
                 <TripInfoCard tripHistory={displayTripHistory} />

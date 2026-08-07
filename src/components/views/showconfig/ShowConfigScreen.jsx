@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { showToast, showConfirm } from "../../../utils/swalTheme";
 import { Link, useSearchParams } from "react-router-dom";
 import { Truck, User, MapPin, Fuel, Users, Edit2, Trash2, Search, ChevronLeft, ChevronRight, X, Loader2, Save, Eye, EyeOff, Upload, PackageSearch, Wifi, WifiOff, CreditCard, Check } from "lucide-react";
 import { useNfcScan } from "../../../hooks/useNfcScan";
@@ -61,30 +62,7 @@ const getEquipmentStatusBadgeClass = (status) => {
     return "bg-white/10 text-gray-300 border border-white/10";
 };
 
-// Toast notification
-const Toast = ({ message, type, onClose }) => {
-    useEffect(() => {
-        const timer = setTimeout(onClose, 3000);
-        return () => clearTimeout(timer);
-    }, [onClose]);
-
-    return (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] animate-in zoom-in-95 fade-in duration-300">
-            <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border backdrop-blur-xl ${
-                type === "success" 
-                    ? "bg-[#74CD25]/10 border-[#74CD25]/20 text-[#74CD25] shadow-[0_0_40px_rgba(116,205,37,0.15)]" 
-                    : "bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_0_40px_rgba(239,68,68,0.15)]"
-                }`}>
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                    type === "success" ? "border-[#74CD25]/30 bg-[#74CD25]/20" : "border-red-500/30 bg-red-500/20"
-                }`}>
-                    {type === "success" ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                </div>
-                <span className="font-bold text-sm tracking-widest uppercase">{message}</span>
-            </div>
-        </div>
-    );
-};
+// Toast notification via SweetAlert2 (see utils/swalTheme.js)
 
 // Reusable form input component
 const FormInput = ({ label, name, value, onChange, type = "text", placeholder = "", required = false, disabled = false }) => (
@@ -173,7 +151,7 @@ const EditShiftCodeModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -226,7 +204,7 @@ const EditMaterialTypeModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -372,7 +350,7 @@ const EditAlatModal = ({ isOpen, onClose, item, onSave }) => {
                             Batal
                         </button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {loading ? <Loader2 className="w-5 h-5 animate-pulse" /> : <Save className="w-5 h-5" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -520,7 +498,7 @@ const EditOperatorModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -668,7 +646,7 @@ const EditLokasiModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -730,7 +708,7 @@ const EditKalibrasiModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -827,7 +805,7 @@ const EditUsersModal = ({ isOpen, onClose, item, onSave }) => {
                     <div className="flex gap-3 pt-4 justify-end">
                         <button type="button" onClick={onClose} className="px-6 py-3 bg-[#4a4b4d] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5a5b5d] transition-all">Batal</button>
                         <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-3 bg-[#74CD25] text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-[#5fa01c] transition-all shadow-lg shadow-[#74CD25]/20 disabled:opacity-50 hover:scale-105 active:scale-95">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-pulse" /> : <Save className="w-4 h-4" />}
                             Simpan Perubahan
                         </button>
                     </div>
@@ -856,7 +834,7 @@ const DataTable = ({ columns, data, onEdit, onDelete, loading }) => {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-[#74CD25] animate-spin" />
+                <Loader2 className="w-8 h-8 text-[#74CD25] animate-pulse" />
                 <span className="ml-3 text-gray-400">Memuat data...</span>
             </div>
         );
@@ -1053,7 +1031,7 @@ export default function ShowConfigScreen({
     }, [searchParams, tabs]);
     const [loading, setLoading] = useState(false);
     const [deleteModal, setDeleteModal] = useState({ open: false, item: null, type: "" });
-    const [toast, setToast] = useState(null);
+    // Toast notifications handled by SweetAlert2
 
     // Edit modal states
     const [editAlatModal, setEditAlatModal] = useState({ open: false, item: null });
@@ -1125,7 +1103,7 @@ export default function ShowConfigScreen({
         }
     };
 
-    const showToast = (message, type = "success") => setToast({ message, type });
+    // showToast is imported from swalTheme.js
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
         const nextParams = new URLSearchParams(searchParams);
@@ -1152,13 +1130,20 @@ export default function ShowConfigScreen({
         }
     };
 
-    const handleDelete = (item) => {
+    const handleDelete = async (item) => {
         const nameField = item.nama || item.name || item.idFms || item.email || `ID: ${item.id}`;
-        setDeleteModal({ open: true, item, type: activeTab, name: nameField });
+        const confirmed = await showConfirm(
+            'Konfirmasi Hapus',
+            `Apakah Anda yakin ingin menghapus ${nameField}?`,
+            'Hapus',
+            'Batal'
+        );
+        if (confirmed) {
+            await performDelete(item, activeTab);
+        }
     };
 
-    const confirmDelete = async () => {
-        const { item, type } = deleteModal;
+    const performDelete = async (item, type) => {
         try {
             switch (type) {
                 case "shift-code": await shiftCodeService.delete(item.id); break;
@@ -1183,8 +1168,6 @@ export default function ShowConfigScreen({
             fetchData(type);
         } catch (error) {
             showToast(error.response?.data?.message || "Gagal menghapus data", "error");
-        } finally {
-            setDeleteModal({ open: false, item: null, type: "" });
         }
     };
 
@@ -1211,7 +1194,7 @@ export default function ShowConfigScreen({
 
     return (
         <PageLayout noScroll={true} className="p-6">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
 
             <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -1258,13 +1241,8 @@ export default function ShowConfigScreen({
                 </div>
             </div>
 
-            {/* Delete Modal */}
-            <DeleteModal
-                isOpen={deleteModal.open}
-                onClose={() => setDeleteModal({ open: false, item: null, type: "" })}
-                onConfirm={confirmDelete}
-                itemName={deleteModal.name}
-            />
+
+            {/* Delete confirmation is now handled via SweetAlert2 showConfirm */}
 
             {/* Edit Modals */}
             <EditAlatModal
