@@ -1,6 +1,5 @@
 const trimTrailingSlash = (value = "") => value.replace(/\/+$/, "");
-const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const DEFAULT_BACKEND_ORIGIN = `http://${hostname}:6969`;
+const DEFAULT_BACKEND_ORIGIN = "http://localhost:6969";
 const DEFAULT_API_BASE_URL = `${DEFAULT_BACKEND_ORIGIN}/api`;
 
 const configuredApiUrl = trimTrailingSlash(import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL);

@@ -36,7 +36,8 @@ import {
   YAxis,
 } from "recharts";
 import PageLayout from "../../layout/PageLayout";
-import GoogleMap from "../../utils/maps/GoogleMap";
+// import GoogleMap from "../../utils/maps/GoogleMap";
+import LeafletMap from "../../utils/maps/LeafletMap";
 import { influxService } from "../../../services/influxService";
 import { dataTripService, alatService } from "../../../services/configService";
 import { TOTAL_PRODUKSI } from "../../../data/vehicleData";
@@ -1494,7 +1495,7 @@ const HomeScreen = () => {
     <PageLayout noScroll={true} className="p-4 font-sans">
       <div className="relative flex-1 overflow-hidden rounded-[2.5rem] border-[1px] border-white/10 bg-[#1a1b1e] shadow-2xl">
         <div className="absolute inset-0">
-          <GoogleMap
+          <LeafletMap
             vehicles={filteredVehicleData}
             selectedVehicle={currentVehicle}
             onVehicleClick={handleVehicleClick}
